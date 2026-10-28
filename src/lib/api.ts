@@ -270,27 +270,59 @@ export interface InviteResult {
  * Invite a staff member by email (administrators only). Runs in the
  * `invite-staff` Edge Function, which holds the secret key server-side.
  */
-export async function inviteStaff(email: string, admin: boolean): Promise<InviteResult> {
-  const { data, error } = await supabase.functions.invoke('invite-staff', {
-    body: { email, admin, redirectTo: `${siteOrigin()}/` },
-  })
-  if (error) {
-    // Non-2xx: the function returns { ok: false, error, message }.
-    const ctx = (error as { context?: Response }).context
-    const body = ctx
-      ? await ctx.json().then(
-          (j: { error?: string; message?: string }) => j,
-          () => null,
-        )
-      : null
-    if (body?.message) throw new ApiError(body.message, body.error ?? null)
+/**
+ * Call a PassSystem Edge Function. Functions answer { ok: false, error, message }
+ * on failure; anything else (function not deployed, gateway error, network
+ * failure) is turned into a readable message instead of leaking internals.
+ */
+async function invokeFunction<T>(
+  name: string,
+  body: Record<string, unknown>,
+  unavailable: string,
+): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(name, { body })
+  if (!error) return data as T
+  const ctx = (error as { context?: unknown }).context
+  if (ctx instanceof Response) {
+    const parsed = await ctx
+      .clone()
+      .json()
+      .then(
+        (j: unknown) => j as { error?: string; message?: string; code?: string },
+        () => null,
+      )
+    if (parsed?.message && parsed.error) throw new ApiError(parsed.message, parsed.error)
+    if (ctx.status === 404) throw new ApiError(unavailable, 'function_not_deployed')
     throw new ApiError(
-      /fetch|network/i.test(error.message)
-        ? 'Network error. Check your connection and try again.'
-        : error.message,
+      `The service answered with an error (${ctx.status}). Try again later.`,
+      'function_error',
     )
   }
-  return data as InviteResult
+  // FunctionsFetchError / FunctionsRelayError: no usable response (network, CORS on a missing function, …).
+  throw new ApiError(
+    navigator.onLine === false ? 'You are offline. Check your connection and try again.' : unavailable,
+    'function_unreachable',
+  )
+}
+
+export async function inviteStaff(email: string, admin: boolean): Promise<InviteResult> {
+  return invokeFunction<InviteResult>(
+    'invite-staff',
+    { email, admin, redirectTo: `${siteOrigin()}/` },
+    'Inviting from PassSystem is not available yet (the invite service is not deployed). Invite the person in the Supabase dashboard: Authentication → Users → Invite user.',
+  )
+}
+
+/** "Save to Google Wallet" URL for a pass, signed server-side by the google-wallet Edge Function. */
+export async function googleWalletSaveUrl(token: string): Promise<string> {
+  const res = await invokeFunction<{ url: string }>(
+    'google-wallet',
+    { token },
+    'Google Wallet is not available right now. Save the QR image instead.',
+  )
+  if (!res?.url?.startsWith('https://pay.google.com/'))
+    throw new ApiError('Unexpected response from Google Wallet.')
+  return res.url
 }
 
 export interface ClientIpDiagnosis {
