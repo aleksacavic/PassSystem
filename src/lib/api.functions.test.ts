@@ -13,7 +13,7 @@ describe('Edge Function error handling', () => {
       data: null,
       error: { message: 'Failed to send a request', context: new TypeError('x') },
     })
-    const err = await inviteStaff('a@b.org', false).catch((e: Error) => e)
+    const err = (await inviteStaff('a@b.org', false).catch((e: unknown) => e)) as Error
     expect(err.message).toMatch(/not available yet.*Supabase dashboard/)
     expect(err.message).not.toMatch(/json is not a function/)
   })
