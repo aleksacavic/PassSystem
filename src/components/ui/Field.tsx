@@ -15,7 +15,8 @@ interface FieldProps {
   label: ReactNode
   hint?: ReactNode
   error?: string | null
-  optional?: boolean
+  /** true shows 'Optional'; a string shows that text instead (translations). */
+  optional?: boolean | string
   children: (props: { id: string; 'aria-describedby'?: string; 'aria-invalid'?: boolean }) => ReactNode
   className?: string
 }
@@ -29,7 +30,11 @@ export function Field({ label, hint, error, optional, children, className }: Fie
     <div className={cx('space-y-1.5', className)}>
       <label htmlFor={id} className="flex items-baseline justify-between text-sm font-semibold text-fg">
         <span>{label}</span>
-        {optional && <span className="text-xs font-normal text-fg-subtle">Optional</span>}
+        {optional && (
+          <span className="text-xs font-normal text-fg-subtle">
+            {typeof optional === 'string' ? optional : 'Optional'}
+          </span>
+        )}
       </label>
       {children({ id, 'aria-describedby': describedBy, 'aria-invalid': error ? true : undefined })}
       {hint && !error && (

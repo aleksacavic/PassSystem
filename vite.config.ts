@@ -11,6 +11,11 @@ export default defineConfig(({ mode }) => {
     server: { port: 5173, strictPort: true },
     // Preview serves the production build with the production security headers.
     preview: { port: 4173, strictPort: true, headers: securityHeaders(supabaseOrigin) },
-    build: { sourcemap: false, target: 'es2020' },
+    build: {
+      sourcemap: false,
+      target: 'es2020',
+      // Fonts are always separate files: the CSP's font-src 'self' blocks data: URIs.
+      assetsInlineLimit: (file: string) => (/\.(woff2?|ttf|otf)$/.test(file) ? false : undefined),
+    },
   }
 })

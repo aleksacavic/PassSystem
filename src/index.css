@@ -31,3 +31,21 @@
     background: white;
   }
 }
+
+@layer components {
+  /* Subtle diagonal texture on brand-coloured bands (event cover, pass). */
+  .band-pattern {
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-on-brand) 7%, transparent) 0 12px,
+      transparent 12px 24px
+    );
+  }
+  [dir='rtl'] .band-pattern {
+    background-image: repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--color-on-brand) 7%, transparent) 0 12px,
+      transparent 12px 24px
+    );
+  }
+}

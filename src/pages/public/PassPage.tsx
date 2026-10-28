@@ -1,15 +1,16 @@
-import { Download } from 'lucide-react'
+import { CalendarPlus, CheckCircle2, Download } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { getPass, type RegistrationResult } from '../../lib/api'
 import { ApiError } from '../../lib/errors'
-import { formatDateTime, formatEventDate } from '../../lib/datetime'
+import { buildIcs, downloadIcs } from '../../lib/calendar'
+import { dateParts, formatDateTime, formatEventDate } from '../../lib/datetime'
+import { errorMessage, useT } from '../../lib/i18n'
 import { formatPassToken, normalizePassToken, passUrl } from '../../lib/passToken'
 import { renderPassImage, safeFilename, saveImage } from '../../lib/qr'
 import { forgetPass, loadPasses } from '../../lib/passStorage'
 import type { PassView, PublicEvent } from '../../lib/types'
 import { CopyButton } from '../../components/CopyButton'
-import { EventInfo } from '../../components/EventInfo'
 import { GoogleWalletButton } from '../../components/GoogleWalletButton'
 import { PublicLayout } from '../../components/PublicLayout'
 import { QrImage } from '../../components/QrImage'
@@ -35,6 +36,7 @@ export default function PassPageRoute() {
 
 function PassPage() {
   const location = useLocation()
+  const { t, locale } = useT()
   const token = normalizePassToken(decodeURIComponent(location.hash.replace(/^#/, '')))
   const navState = (location.state ?? {}) as LocationState
   const initial: State =
@@ -76,7 +78,7 @@ function PassPage() {
               ? prev // keep showing the pass if only a refresh failed
               : {
                   kind: 'error',
-                  message: err?.message ?? 'Could not load the pass.',
+                  message: errorMessage(t, err?.code, err?.message ?? t('pass.loadErrorBody')),
                   notFound: err?.code === 'pass_not_found',
                 },
           )
@@ -88,20 +90,22 @@ function PassPage() {
       cancelled = true
       document.removeEventListener('visibilitychange', onVisible)
     }
+    // t only changes with the language; that must not refetch the pass.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, reloadKey])
 
   useEffect(() => {
-    document.title = state.kind === 'ready' ? `Pass · ${state.event.name}` : 'Your pass'
-  }, [state])
+    document.title = state.kind === 'ready' ? `${t('pass.title')} · ${state.event.name}` : t('pass.title')
+  }, [state, t])
 
   if (state.kind === 'missing') {
     return (
       <PublicLayout>
         <Card className="p-6 text-center">
-          <h1 className="text-xl font-bold">No pass in this link</h1>
-          <p className="mt-2 text-fg-muted">Open the full pass link you received after registering.</p>
+          <h1 className="text-xl font-bold">{t('pass.missing')}</h1>
+          <p className="mt-2 text-fg-muted">{t('pass.missingBody')}</p>
           <Link to="/" className="mt-4 inline-block font-semibold text-brand underline">
-            Passes saved on this device
+            {t('pass.savedOnDevice')}
           </Link>
         </Card>
       </PublicLayout>
@@ -111,7 +115,7 @@ function PassPage() {
   if (state.kind === 'loading') {
     return (
       <PublicLayout>
-        <PageSpinner label="Loading pass" />
+        <PageSpinner label={t('loading')} />
       </PublicLayout>
     )
   }
@@ -120,11 +124,11 @@ function PassPage() {
     return (
       <PublicLayout>
         <Card className="p-6 text-center">
-          <h1 className="text-xl font-bold">{state.notFound ? 'Pass not found' : 'Could not load pass'}</h1>
+          <h1 className="text-xl font-bold">{state.notFound ? t('pass.notFound') : t('pass.loadError')}</h1>
           <p className="mt-2 text-fg-muted">{state.message}</p>
           {!state.notFound && (
             <Button className="mt-5" onClick={retry}>
-              Try again
+              {t('tryAgain')}
             </Button>
           )}
         </Card>
@@ -135,6 +139,7 @@ function PassPage() {
   const { pass, event } = state
   const fullName = `${pass.first_name} ${pass.last_name}`
   const usable = pass.status === 'registered'
+  const when = dateParts(event.starts_at, event.timezone, locale)
 
   async function onSave() {
     if (!qr || !token) return
@@ -153,104 +158,181 @@ function PassPage() {
       })
       await saveImage(blob, `pass-${safeFilename(event.name)}-${safeFilename(fullName)}.png`)
     } catch {
-      setSaveError('Could not save the image. Take a screenshot instead.')
+      setSaveError(t('pass.saveError'))
     } finally {
       setSaving(false)
     }
   }
 
-  return (
-    <PublicLayout>
-      <div className="space-y-5">
-        {navState.justRegistered && (
-          <Alert tone="ok" title="You are registered!">
-            Keep this pass: save the QR image or bookmark this page.
-          </Alert>
-        )}
+  async function onCalendar() {
+    if (!token || !url) return
+    // A stable id per pass that does not reveal the pass code.
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token)))
+    const uid = Array.from(digest.slice(0, 12), (b) => b.toString(16).padStart(2, '0')).join('')
+    downloadIcs(
+      buildIcs({
+        uid: `${uid}@passsystem`,
+        title: event.name,
+        startsAt: event.starts_at,
+        endsAt: event.ends_at,
+        location: event.location,
+        description: t('pass.calendarNote', { url }),
+        url,
+      }),
+      `${safeFilename(event.name)}.ics`,
+    )
+  }
 
-        <Card className="overflow-hidden">
-          <div className="space-y-4 p-5">
-            <EventInfo event={event} compact />
-            <div className="flex items-center justify-between gap-3 border-t border-line-soft pt-4">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold tracking-wide text-fg-subtle uppercase">Attendee</p>
-                <p className="truncate text-xl font-bold" data-testid="pass-name">
-                  {fullName}
-                </p>
-              </div>
+  return (
+    <PublicLayout tone="brand">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3 text-on-brand-muted">
+          {navState.justRegistered ? (
+            <p className="flex items-center gap-2 text-[15px] font-bold text-on-brand" role="status">
+              <CheckCircle2 className="size-5" aria-hidden="true" />
+              {t('pass.registered')}
+            </p>
+          ) : (
+            <span />
+          )}
+          {storedHere && <span className="text-xs font-semibold">{t('pass.savedHere')}</span>}
+        </div>
+        {navState.justRegistered && <p className="text-sm text-on-brand-muted">{t('pass.keep')}</p>}
+
+        <section aria-label={t('pass.title')} className="rounded-card bg-surface text-fg shadow-raised">
+          <div className="space-y-3 px-5 pt-5 pb-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[11px] font-extrabold tracking-[0.14em] text-brand uppercase">
+                {t('pass.kicker')}
+              </span>
               <PassStatus status={pass.status} />
             </div>
+            <h1 className="text-2xl leading-tight font-extrabold tracking-tight break-words">
+              <bdi>{event.name}</bdi>
+            </h1>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <div>
+                <dt className="text-[11px] font-bold tracking-wider text-fg-subtle uppercase">
+                  {t('pass.date')}
+                </dt>
+                <dd className="text-[15px] font-bold">{when.date}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] font-bold tracking-wider text-fg-subtle uppercase">
+                  {t('pass.doors')}
+                </dt>
+                <dd className="text-[15px] font-bold">{when.time}</dd>
+              </div>
+              {event.location && (
+                <div className="col-span-2">
+                  <dt className="text-[11px] font-bold tracking-wider text-fg-subtle uppercase">
+                    {t('pass.venue')}
+                  </dt>
+                  <dd className="text-[15px] font-bold break-words">
+                    <bdi>{event.location}</bdi>
+                  </dd>
+                </div>
+              )}
+              <div className="col-span-2">
+                <dt className="text-[11px] font-bold tracking-wider text-fg-subtle uppercase">
+                  {t('pass.guest')}
+                </dt>
+                <dd className="truncate text-lg font-extrabold" data-testid="pass-name">
+                  <bdi>{fullName}</bdi>
+                </dd>
+              </div>
+            </dl>
           </div>
 
-          <div className={usable ? 'bg-surface px-5 pb-5' : 'bg-surface px-5 pb-5 opacity-30 grayscale'}>
-            <QrImage
-              dataUrl={qr}
-              alt={`Entry QR code for ${fullName}`}
-              className="mx-auto max-w-[340px] ring-1 ring-line-soft"
-            />
-            {token && (
-              <p
-                className="mt-3 text-center font-mono text-sm tracking-wider text-fg-muted"
-                data-testid="pass-code"
-              >
-                {formatPassToken(token)}
+          {/* Perforation: notches in the page colour and a dashed tear line. */}
+          <div className="relative flex h-6 items-center" aria-hidden="true">
+            <span className="absolute -start-3 size-6 rounded-full bg-primary" />
+            <span className="absolute -end-3 size-6 rounded-full bg-primary" />
+            <span className="mx-5 flex-1 border-t-2 border-dashed border-line" />
+          </div>
+
+          <div className="px-5 pt-3 pb-5 text-center">
+            <div className={usable ? '' : 'opacity-30 grayscale'}>
+              <QrImage
+                dataUrl={qr}
+                alt={t('pass.qrAlt', { name: fullName })}
+                className="mx-auto max-w-[260px] p-3 ring-1 ring-line-soft"
+              />
+              {token && (
+                <p
+                  className="mt-3 font-mono text-[15px] font-semibold tracking-wider text-fg"
+                  data-testid="pass-code"
+                  dir="ltr"
+                >
+                  {formatPassToken(token)}
+                </p>
+              )}
+            </div>
+            {pass.status === 'registered' && (
+              <p className="mt-2 text-sm text-fg-subtle">
+                {t('pass.show')} {t('pass.brightness')}
               </p>
             )}
-          </div>
-
-          <div className="border-t border-line-soft bg-surface-sunk px-5 py-4 text-center">
-            {pass.status === 'registered' && (
-              <p className="text-base font-semibold">Show this QR code at the entrance.</p>
-            )}
             {pass.status === 'checked_in' && (
-              <p className="text-base font-semibold text-success-fg">
-                This pass was used for entry on {formatDateTime(pass.checked_in_at, event.timezone)}.
+              <p className="mt-3 text-[15px] font-semibold text-success-fg">
+                {t('pass.used', { when: formatDateTime(pass.checked_in_at, event.timezone, locale) })}
               </p>
             )}
             {pass.status === 'revoked' && (
-              <p className="text-base font-semibold text-danger-fg">
-                This pass has been revoked and is not valid for entry. Contact the organizer.
-              </p>
-            )}
-            {usable && (
-              <p className="mt-1 text-sm text-fg-subtle">Tip: turn up your screen brightness at the door.</p>
+              <p className="mt-3 text-[15px] font-semibold text-danger-fg">{t('pass.revoked')}</p>
             )}
           </div>
-        </Card>
+        </section>
 
+        {usable && (
+          <div className="no-print grid grid-cols-2 gap-3">
+            <Button variant="secondary" size="md" icon={CalendarPlus} onClick={() => void onCalendar()}>
+              {t('pass.calendar')}
+            </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              icon={Download}
+              onClick={onSave}
+              loading={saving}
+              disabled={!qr}
+            >
+              {t('pass.save')}
+            </Button>
+          </div>
+        )}
         {usable && token && (
           <div className="no-print">
             <GoogleWalletButton token={token} />
           </div>
         )}
-        {usable && (
-          <div className="no-print grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Button size="lg" icon={Download} onClick={onSave} loading={saving} disabled={!qr}>
-              Save QR
-            </Button>
-            {url && <CopyButton text={url} label="Copy pass link" size="lg" />}
+        {usable && url && (
+          <div className="no-print">
+            <CopyButton
+              text={url}
+              label={t('pass.copy')}
+              variant="ghost"
+              block
+              className="text-on-brand hover:bg-on-brand/10 hover:text-on-brand"
+            />
           </div>
         )}
         {saveError && <Alert tone="warn">{saveError}</Alert>}
 
-        <p className="no-print text-center text-sm text-fg-subtle">
-          This link is your personal pass. Do not share it with others.
-        </p>
+        <p className="no-print text-center text-sm text-on-brand-muted">{t('pass.private')}</p>
         {storedHere && token && (
           <div className="no-print text-center">
             <button
               type="button"
-              className="text-sm font-semibold text-brand underline"
+              className="text-sm font-semibold text-on-brand underline"
               onClick={() => {
                 forgetPass(token)
                 setStoredHere(false)
               }}
             >
-              Remove this pass from this device
+              {t('pass.forget')}
             </button>
-            <p className="mt-1 text-xs text-fg-subtle">
-              Use this on a shared phone or tablet. Your pass stays valid.
-            </p>
+            <p className="mt-1 text-xs text-on-brand-muted">{t('pass.forgetHint')}</p>
           </div>
         )}
       </div>
@@ -259,21 +341,22 @@ function PassPage() {
 }
 
 function PassStatus({ status }: { status: PassView['status'] }) {
+  const { t } = useT()
   if (status === 'checked_in')
     return (
       <Badge tone="ok" className="text-sm">
-        Used
+        {t('pass.status.used')}
       </Badge>
     )
   if (status === 'revoked')
     return (
       <Badge tone="bad" className="text-sm">
-        Revoked
+        {t('pass.status.revoked')}
       </Badge>
     )
   return (
     <Badge tone="accent" className="text-sm">
-      Registered
+      {t('pass.status.registered')}
     </Badge>
   )
 }

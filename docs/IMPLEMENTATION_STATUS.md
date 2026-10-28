@@ -65,6 +65,7 @@ a production build under the production CSP:
 - ✅ Private pass URL `/pass#TOKEN` (fragment, never sent to servers). Shows "used" or "revoked" after the fact.
 - ✅ localStorage list of passes on this device (secondary only).
 - ✅ Double-tap protection (in-flight guard + server idempotency key), honeypot, rate limits.
+- ✅ English and Arabic (right-to-left) guest pages with a language switch; Add to calendar (`.ics`).
 - ➖ Emailing passes (deferred enhancement).
 
 ### Scanner
@@ -108,7 +109,7 @@ a production build under the production CSP:
 | Site | https://passsystem-phi.vercel.app (Vercel project `passsystem`, linked to this GitHub repo) |
 | Supabase project | `wvwpedmwhsddsfixjpjd` (region ap-southeast-2, Postgres 17.11) |
 | Migrations | 7/7 applied through the Management API and recorded in `supabase_migrations.schema_migrations` (004 = audit remediation, 005 = wallet lookup, 006 = attendance terms + phone, 007 = Codex review 2 remediation; all applied 2026-10-28). **008 (Codex review 3 remediation) is on the branch, not applied yet**: it waits for the owner's approval. Deploy order: 008, then `invite-staff`, then the frontend. |
-| Frontend | Production deployment of commit `d6a8752` (UI rework, terms-version check, invite links) |
+| Frontend | Production deployment of commit `d6a8752` (UI rework, terms-version check, invite links). The Sand & Teal redesign and Arabic guest pages are on the branch, not deployed yet; they deploy after 008 and `invite-staff`. |
 | Rate-limit IP source | `trust_cf_connecting_ip = 1` (Supabase Cloud). The deployment check line reports `cf-connecting-ip`. The in-browser **Test header spoofing** button cannot run against Supabase Cloud (the request carrying the probe header is rejected before it reaches the database), so forgeability is unconfirmed. A server-side probe (pg_net request through the public URL) is pending owner approval. |
 | Edge Functions | `invite-staff`, `remove-staff` (verify_jwt on) and `google-wallet` (verify_jwt off) deployed 2026-10-28, ACTIVE (`invite-staff` and `remove-staff` at `8399992`: invite links, `mark_pending_admin`, admin delete guard). `remove-staff` deletes a non-admin account (or cancels a pending invite); assignments cascade, check-in history is kept. Google Wallet: issuer ID and service-account key secrets set, `VITE_GOOGLE_WALLET=1` set in Vercel (production + preview), 2026-10-28. Issuer is in demo mode: only Wallet Console test accounts can save passes until Google grants publishing access. |
 | Live schema checks | RLS on all 5 tables; anon can execute only `get_pass`, `get_public_event`, `register_for_event`; every SECURITY DEFINER function pins `search_path`; credential hashes not selectable |

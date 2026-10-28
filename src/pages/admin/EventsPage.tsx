@@ -2,15 +2,16 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../../auth/AuthProvider'
 import { getEventSummaries } from '../../lib/api'
-import { formatEventDate } from '../../lib/datetime'
 import { registrationUrl } from '../../lib/passToken'
 import { usePolling } from '../../lib/usePolling'
 import type { EventSummary } from '../../lib/types'
 import { PageHeader } from '../../components/AdminLayout'
-import { CopyButton, ShareButton } from '../../components/CopyButton'
-import { EventStatusBadge } from '../../components/StatusBadge'
-import { Plus, ScanLine, Settings2 } from 'lucide-react'
-import { Alert, Badge, ButtonLink, Card, PageSpinner, SegmentedControl } from '../../components/ui'
+import { copyText } from '../../lib/clipboard'
+import { dateParts } from '../../lib/datetime'
+import { ShareButton } from '../../components/CopyButton'
+import { DateTile } from '../../components/DateTile'
+import { Link2, Plus, ScanLine, Settings2 } from 'lucide-react'
+import { Alert, Badge, ButtonLink, Card, Menu, PageSpinner, SegmentedControl, cx } from '../../components/ui'
 
 export default function EventsPage() {
   const { isAdmin } = useAuth()
@@ -80,7 +81,7 @@ export default function EventsPage() {
           )}
         </Card>
       )}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {visible.map((e) => (
           <EventCard key={e.id} event={e} />
         ))}
@@ -89,16 +90,84 @@ export default function EventsPage() {
   )
 }
 
+type Phase = { label: string; tone: 'live' | 'open' | 'quiet' | 'draft' }
+
+/** What an organizer most needs to know about the event right now. */
+function phaseOf(event: EventSummary, now = Date.now()): Phase {
+  if (event.status === 'draft') return { label: 'Draft · not published', tone: 'draft' }
+  if (event.status === 'archived') return { label: 'Archived', tone: 'quiet' }
+  const start = Date.parse(event.starts_at)
+  const end = event.ends_at ? Date.parse(event.ends_at) : start + 12 * 3600_000
+  if (now >= start - 2 * 3600_000 && now <= end) return { label: 'Live · doors open', tone: 'live' }
+  if (now > end) return { label: 'Ended', tone: 'quiet' }
+  if (event.status === 'closed') return { label: 'Registration closed', tone: 'quiet' }
+  return { label: 'Registration open', tone: 'open' }
+}
+
+function ProgressRing({ done, total }: { done: number; total: number }) {
+  const r = 22
+  const c = 2 * Math.PI * r
+  const pct = total ? Math.min(1, done / total) : 0
+  return (
+    <div className="relative size-14 shrink-0" role="img" aria-label={`${done} of ${total} checked in`}>
+      <svg viewBox="0 0 56 56" className="size-14 -rotate-90" aria-hidden="true">
+        <circle cx="28" cy="28" r={r} fill="none" strokeWidth="6" className="stroke-surface-muted" />
+        <circle
+          cx="28"
+          cy="28"
+          r={r}
+          fill="none"
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeDasharray={`${pct * c} ${c}`}
+          className="stroke-success transition-[stroke-dasharray]"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+        <span className="text-sm font-extrabold tabular-nums">
+          {done}/{total}
+        </span>
+        <span className="mt-0.5 text-[9px] font-bold text-fg-subtle">IN</span>
+      </div>
+    </div>
+  )
+}
+
 function EventCard({ event }: { event: EventSummary }) {
   const canManage = event.my_role === 'admin' || event.my_role === 'organizer'
   const shareable = event.status !== 'draft' && event.status !== 'archived'
-  const remaining = Math.max(0, event.registered_count - event.checked_in_count)
-  const pct = event.registered_count ? Math.round((event.checked_in_count / event.registered_count) * 100) : 0
+  const phase = phaseOf(event)
+  const when = dateParts(event.starts_at, event.timezone)
+  const url = registrationUrl(event.slug)
+  const menu = [
+    ...(shareable
+      ? [{ label: 'Copy registration link', icon: Link2, onSelect: () => void copyText(url) }]
+      : []),
+    { label: 'Manage event', icon: Settings2, to: `/admin/events/${event.id}` },
+  ]
   return (
-    <Card className="flex flex-col p-5" data-testid="event-card">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold break-words">
+    <Card className="flex min-w-0 flex-col gap-4 p-4" data-testid="event-card">
+      <div className="flex items-center gap-3.5">
+        <DateTile
+          iso={event.starts_at}
+          timeZone={event.timezone}
+          tone={phase.tone === 'live' || phase.tone === 'open' ? 'brand' : 'muted'}
+        />
+        <div className="min-w-0 flex-1">
+          <p
+            className={cx(
+              'flex items-center gap-1.5 text-xs font-bold',
+              phase.tone === 'live' && 'text-success',
+              phase.tone === 'open' && 'text-brand',
+              phase.tone === 'draft' && 'text-warning-fg',
+              phase.tone === 'quiet' && 'text-fg-subtle',
+            )}
+          >
+            {phase.tone === 'live' && <span className="size-2 rounded-full bg-success" aria-hidden="true" />}
+            {phase.label}
+            {event.my_role === 'operator' && <Badge className="ms-1">Operator</Badge>}
+          </p>
+          <h2 className="mt-0.5 text-lg leading-snug font-extrabold tracking-tight break-words">
             {canManage ? (
               <Link to={`/admin/events/${event.id}`} className="hover:underline">
                 {event.name}
@@ -107,57 +176,31 @@ function EventCard({ event }: { event: EventSummary }) {
               event.name
             )}
           </h2>
-          <p className="text-sm text-fg-muted">
-            {formatEventDate(event.starts_at, event.ends_at, event.timezone)}
+          <p className="truncate text-sm text-fg-subtle">
+            {when.time}
+            {event.location ? ` · ${event.location}` : ''}
+            {event.max_attendees ? ` · ${event.registered_count}/${event.max_attendees} registered` : ''}
           </p>
-          {event.location && <p className="text-sm text-fg-subtle">{event.location}</p>}
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <EventStatusBadge status={event.status} />
-          {event.my_role === 'operator' && <Badge>Operator</Badge>}
-        </div>
+        <ProgressRing done={event.checked_in_count} total={event.registered_count} />
       </div>
-      <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
-        <Stat label="Registered" value={event.registered_count} />
-        <Stat label="Admitted" value={event.checked_in_count} />
-        <Stat label="Remaining" value={remaining} />
-      </dl>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-muted" aria-hidden="true">
-        <div className="h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+      <div className="flex gap-2">
         {event.status !== 'archived' && (
-          <ButtonLink to={`/scan/${event.id}`} size="sm" icon={ScanLine}>
+          <ButtonLink to={`/scan/${event.id}`} icon={ScanLine} className="flex-1">
             Scan
           </ButtonLink>
         )}
         {canManage && shareable && (
           <ShareButton
-            url={registrationUrl(event.slug)}
+            url={url}
             title={event.name}
-            text={`Register for ${event.name}:`}
+            text={`You're invited to ${event.name} (${when.date}, ${when.time}). Register here:`}
             label="Share invite"
-            size="sm"
+            iconOnly
           />
         )}
-        {canManage && shareable && (
-          <CopyButton text={registrationUrl(event.slug)} label="Copy link" size="sm" />
-        )}
-        {canManage && (
-          <ButtonLink to={`/admin/events/${event.id}`} variant="secondary" size="sm" icon={Settings2}>
-            Manage
-          </ButtonLink>
-        )}
+        {canManage && <Menu label={`More actions for ${event.name}`} items={menu} />}
       </div>
     </Card>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-control bg-surface-sunk px-2 py-2">
-      <dt className="text-xs font-medium text-fg-subtle">{label}</dt>
-      <dd className="text-xl font-bold tabular-nums">{value}</dd>
-    </div>
   )
 }

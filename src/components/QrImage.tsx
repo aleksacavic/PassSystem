@@ -10,7 +10,7 @@ export function QrImage({
   className?: string
 }) {
   return (
-    <div className={cx('aspect-square w-full overflow-hidden rounded-card bg-surface', className)}>
+    <div className={cx('aspect-square w-full overflow-hidden rounded-card bg-qr-bg', className)}>
       {dataUrl ? (
         <img src={dataUrl} alt={alt} className="size-full [image-rendering:pixelated]" draggable={false} />
       ) : (

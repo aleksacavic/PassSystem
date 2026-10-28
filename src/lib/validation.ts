@@ -16,25 +16,43 @@ export function cleanName(value: string): string {
   return value.replace(/\s+/g, ' ').trim().normalize('NFC')
 }
 
-export function validateName(value: string, label: string): string | null {
+export type NameProblem = 'required' | 'too_long' | 'invalid_chars' | 'no_letter'
+
+export function nameProblem(value: string): NameProblem | null {
   const v = cleanName(value)
-  if (!v) return `${label} is required.`
-  if (v.length > NAME_MAX) return `${label} must be at most ${NAME_MAX} characters.`
-  if (CONTROL_RE.test(value) || INVISIBLE_RE.test(v) || /[<>]/.test(v))
-    return `${label} contains characters that are not allowed.`
-  if (!LETTER_OR_DIGIT_RE.test(v)) return `${label} must contain at least one letter.`
+  if (!v) return 'required'
+  if (v.length > NAME_MAX) return 'too_long'
+  if (CONTROL_RE.test(value) || INVISIBLE_RE.test(v) || /[<>]/.test(v)) return 'invalid_chars'
+  if (!LETTER_OR_DIGIT_RE.test(v)) return 'no_letter'
   return null
+}
+
+export function validateName(value: string, label: string): string | null {
+  switch (nameProblem(value)) {
+    case 'required':
+      return `${label} is required.`
+    case 'too_long':
+      return `${label} must be at most ${NAME_MAX} characters.`
+    case 'invalid_chars':
+      return `${label} contains characters that are not allowed.`
+    case 'no_letter':
+      return `${label} must contain at least one letter.`
+    default:
+      return null
+  }
 }
 
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase()
 }
 
-export function validateEmail(value: string): string | null {
+export function emailInvalid(value: string): boolean {
   const v = normalizeEmail(value)
-  if (!v) return null
-  if (v.length > EMAIL_MAX || !EMAIL_RE.test(v)) return 'Enter a valid email address or leave it empty.'
-  return null
+  return Boolean(v) && (v.length > EMAIL_MAX || !EMAIL_RE.test(v))
+}
+
+export function validateEmail(value: string): string | null {
+  return emailInvalid(value) ? 'Enter a valid email address or leave it empty.' : null
 }
 
 /** "+971 50 123 4567" -> "+971501234567" (mirrors private.clean_phone). */
@@ -42,11 +60,15 @@ export function cleanPhone(value: string): string {
   return value.trim().replace(/[\s().-]/g, '')
 }
 
+export function phoneInvalid(value: string): boolean {
+  if (!value.trim()) return false
+  return value.length > 40 || !/^\+[1-9][0-9]{7,14}$/.test(cleanPhone(value))
+}
+
 export function validatePhone(value: string): string | null {
-  if (!value.trim()) return null
-  if (value.length > 40 || !/^\+[1-9][0-9]{7,14}$/.test(cleanPhone(value)))
-    return 'Enter the number with country code, e.g. +971 50 123 4567, or leave it empty.'
-  return null
+  return phoneInvalid(value)
+    ? 'Enter the number with country code, e.g. +971 50 123 4567, or leave it empty.'
+    : null
 }
 
 export interface RegistrationInput {

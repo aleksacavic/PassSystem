@@ -81,8 +81,10 @@ function TabItem(entry: NavEntry) {
 export function AdminLayout() {
   const { profile, signOut } = useAuth()
   const entries = useNavEntries()
+  // The door scanner runs in the dark theme (dim venues, less glare).
+  const night = useLocation().pathname.startsWith('/scan')
   return (
-    <div className="min-h-dvh">
+    <div className={cx('min-h-dvh', night && 'theme-night')} data-theme-night={night || undefined}>
       <header className="no-print sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex h-(--nav-height) max-w-6xl items-center gap-3 px-4">
           <Logo to="/admin" wordmark="desktop" />

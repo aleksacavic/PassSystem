@@ -27,6 +27,8 @@
     "db:seed:dev": "node scripts/dev-seed.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/plus-jakarta-sans": "5.3.0",
+    "@fontsource/ibm-plex-sans-arabic": "5.3.0",
     "@supabase/supabase-js": "^2.118.0",
     "barcode-detector": "^3.2.3",
     "lucide-react": "1.56.0",

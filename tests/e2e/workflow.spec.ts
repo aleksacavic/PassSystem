@@ -94,9 +94,9 @@ test('organizer → attendee → operator camera scan → event isolation → re
   await att.getByLabel(/Phone/).fill('+971 50 123 4567')
   await expect(att.getByTestId('terms')).toContainText('not political')
   await att.getByLabel('I have read and accept the attendance terms.').check()
-  await att.getByRole('button', { name: 'Register' }).click()
+  await att.getByRole('button', { name: 'Get my pass' }).click()
   await expect(att).toHaveURL(/\/pass#[0-9A-Z]{24}$/)
-  await expect(att.getByText('You are registered!')).toBeVisible()
+  await expect(att.getByText("You're registered")).toBeVisible()
   await expect(att.getByTestId('pass-name')).toHaveText('Ana Petrović')
   await expect(att.getByRole('img', { name: /Entry QR code/ })).toBeVisible()
   const passUrl = att.url()
@@ -106,7 +106,7 @@ test('organizer → attendee → operator camera scan → event isolation → re
   const other = await (await browser.newContext({ baseURL })).newPage()
   await other.goto(passUrl)
   await expect(other.getByTestId('pass-name')).toHaveText('Ana Petrović')
-  await expect(other.getByText('Registered', { exact: true })).toBeVisible()
+  await expect(other.getByText('Valid', { exact: true })).toBeVisible()
 
   // ------------------------------------------- operator, second phone, camera
   const video = writeQrVideo(passUrl, join(ART, `pass-${suffix}.y4m`))
@@ -166,11 +166,17 @@ test('organizer → attendee → operator camera scan → event isolation → re
   await org.goto('/admin')
   const eventB = await createEventViaUi(org, `Event B ${suffix}`)
   await att.goto(eventB.url)
+  // Arabic: right-to-left, and nothing pushes the page sideways (an off-screen element once did).
+  await att.getByTestId('lang-switch').click()
+  await expect(att.locator('html')).toHaveAttribute('dir', 'rtl')
+  await expect(att.getByLabel('الاسم الأول')).toBeVisible()
+  expect(await att.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
+  await att.getByTestId('lang-switch').click()
   await att.getByLabel('First name').fill('Marko')
   await att.getByLabel('Last name').fill('Marković')
   await att.getByLabel('Email').fill('marko@example.org')
   await att.getByLabel('I have read and accept the attendance terms.').check()
-  await att.getByRole('button', { name: 'Register' }).click()
+  await att.getByRole('button', { name: 'Get my pass' }).click()
   await expect(att.getByTestId('pass-name')).toHaveText('Marko Marković')
   const codeB = (await att.getByTestId('pass-code').innerText()).trim()
 
@@ -206,9 +212,10 @@ test('organizer → attendee → operator camera scan → event isolation → re
 
   await org.goto(`/admin/events/${eventA.id}`)
   const stats = org.getByTestId('stats')
-  await expect(stats).toContainText('Registrations1')
+  // Header counts: label, then value.
   await expect(stats).toContainText('Checked in1')
-  await expect(stats).toContainText('100%')
+  await expect(stats).toContainText('Still to come0')
+  await expect(stats).toContainText('Registered1')
 
   await org.goto(`/admin/events/${eventA.id}?tab=activity`)
   await expect(org.getByText('Admitted', { exact: true })).toBeVisible()

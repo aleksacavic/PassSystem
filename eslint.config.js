@@ -10,6 +10,7 @@ export default tseslint.config(
       'dist',
       'dist-e2e',
       'tests/e2e/.artifacts',
+      'tests/.artifacts',
       'coverage',
       'playwright-report',
       'test-results',

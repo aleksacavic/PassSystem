@@ -2,6 +2,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import RegisterPage from './RegisterPage'
+import { LangProvider } from '../../components/LangProvider'
 import * as api from '../../lib/api'
 import { ApiError } from '../../lib/errors'
 
@@ -52,7 +53,7 @@ describe('RegisterPage', () => {
     renderPage()
     fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'Ana' } })
     fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Test' } })
-    const button = screen.getByRole('button', { name: 'Register' })
+    const button = screen.getByRole('button', { name: 'Get my pass' })
     for (let i = 0; i < 5; i++) fireEvent.click(button)
     expect(api.registerForEvent).toHaveBeenCalledTimes(1)
     resolve({
@@ -85,9 +86,9 @@ describe('RegisterPage', () => {
     renderPage()
     fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'Ana' } })
     fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Test' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Get my pass' }))
     await screen.findByText(/network error/i)
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Get my pass' }))
     await screen.findByText('pass page')
     const calls = vi.mocked(api.registerForEvent).mock.calls
     expect(calls.at(-1)![0].requestId).toBe(calls.at(-2)![0].requestId)
@@ -96,7 +97,7 @@ describe('RegisterPage', () => {
   it('shows validation errors without calling the server', async () => {
     vi.mocked(api.registerForEvent).mockClear()
     renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Register' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Get my pass' }))
     await waitFor(() => expect(screen.getByText('First name is required.')).toBeInTheDocument())
     expect(api.registerForEvent).not.toHaveBeenCalled()
   })
@@ -105,7 +106,7 @@ describe('RegisterPage', () => {
     vi.mocked(api.getPublicEvent).mockResolvedValue({ event, registrationState: 'closed' })
     renderPage()
     expect(await screen.findByText('Registration is closed')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Register' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Get my pass' })).toBeNull()
   })
 
   it('requires ticking the attendance terms when the event has them', async () => {
@@ -126,11 +127,11 @@ describe('RegisterPage', () => {
     fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'Ana' } })
     fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Test' } })
     expect(screen.getByTestId('terms')).toHaveTextContent('Private social event')
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Get my pass' }))
     expect(await screen.findByText('Please read and accept the attendance terms.')).toBeInTheDocument()
     expect(api.registerForEvent).not.toHaveBeenCalled()
     fireEvent.click(screen.getByLabelText('I have read and accept the attendance terms.'))
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Get my pass' }))
     await screen.findByText('pass page')
     expect(vi.mocked(api.registerForEvent).mock.calls[0]![0]).toMatchObject({ acceptTerms: true })
   })
@@ -151,7 +152,7 @@ describe('RegisterPage', () => {
     fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'Ana' } })
     fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Test' } })
     fireEvent.click(screen.getByLabelText('I have read and accept the attendance terms.'))
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Get my pass' }))
     expect(await screen.findByText(/just updated the attendance terms/)).toBeInTheDocument()
     expect(vi.mocked(api.registerForEvent).mock.calls[0]![0]).toMatchObject({ termsVersion: 'aaa' })
     await waitFor(() => expect(screen.getByTestId('terms')).toHaveTextContent('Updated rule'))
@@ -176,15 +177,42 @@ describe('RegisterPage', () => {
     fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'Ana' } })
     fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Test' } })
     fireEvent.change(screen.getByLabelText(/Phone/), { target: { value: '050 123 4567' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Get my pass' }))
     expect(await screen.findByText(/with country code/i, { selector: '[role=alert]' })).toBeInTheDocument()
     expect(api.registerForEvent).not.toHaveBeenCalled()
     fireEvent.change(screen.getByLabelText(/Phone/), { target: { value: '+971 50 123 4567' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Get my pass' }))
     await screen.findByText('pass page')
     expect(vi.mocked(api.registerForEvent).mock.calls[0]![0]).toMatchObject({
       phone: '+971501234567',
       acceptTerms: false,
     })
+  })
+
+  it('shows the page in Arabic, right to left, with Arabic validation messages', async () => {
+    vi.mocked(api.getPublicEvent).mockResolvedValue({ event: withTerms, registrationState: 'open' })
+    localStorage.setItem('passsystem.lang', 'ar')
+    const view = render(
+      <MemoryRouter initialEntries={['/e/gala']}>
+        <LangProvider>
+          <Routes>
+            <Route path="/e/:slug" element={<RegisterPage />} />
+          </Routes>
+        </LangProvider>
+      </MemoryRouter>,
+    )
+    expect(await screen.findByLabelText('الاسم الأول')).toBeInTheDocument()
+    expect(document.documentElement.dir).toBe('rtl')
+    expect(document.documentElement.lang).toBe('ar')
+    fireEvent.click(screen.getByRole('button', { name: 'احصل على تذكرتي' }))
+    expect(await screen.findByText('الاسم الأول مطلوب.')).toBeInTheDocument()
+    expect(screen.getByText('يرجى قراءة شروط الحضور والموافقة عليها.')).toBeInTheDocument()
+
+    // Switching back to English flips the page direction again.
+    fireEvent.click(screen.getByTestId('lang-switch'))
+    expect(await screen.findByLabelText('First name')).toBeInTheDocument()
+    expect(document.documentElement.dir).toBe('ltr')
+    view.unmount()
+    localStorage.removeItem('passsystem.lang')
   })
 })

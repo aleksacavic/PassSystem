@@ -8,88 +8,133 @@
  * 3. Component   (--radius-*, --shadow-*, --control-*, --nav-*): sizes, shapes
  *    and per-component colours, also built from the semantic layer.
  *
+ * Look: "Sand & Teal" (warm sand surfaces, deep teal actions). The door scanner
+ * switches to "Night" by putting `theme-night` on its root (below), which only
+ * redefines layer 2.
+ *
  * To restyle the app, change layer 1 or 2 here. Don't add raw colours in JSX.
  */
 
 /* ---------------------------------------------------------------- 1. primitives */
 :root {
-  --palette-ink-0: #ffffff;
+  --palette-white: #ffffff;
   --palette-black: #000000;
-  --palette-ink-25: #fafafb;
-  --palette-ink-50: #f5f6f8;
-  --palette-ink-100: #eceef2;
-  --palette-ink-200: #dde0e6;
-  --palette-ink-300: #c3c7d0;
-  --palette-ink-400: #9096a3;
-  --palette-ink-500: #6a7080;
-  --palette-ink-600: #50566a;
-  --palette-ink-700: #3a3f50;
-  --palette-ink-800: #262a36;
-  --palette-ink-900: #161922;
 
-  --palette-blue-50: #eef3ff;
-  --palette-blue-100: #dce6ff;
-  --palette-blue-500: #3b6fe0;
-  --palette-blue-600: #2a58c4;
-  --palette-blue-700: #22479f;
+  /* Warm sand neutrals */
+  --palette-sand-0: #fffdf9;
+  --palette-sand-50: #f5f0e8;
+  --palette-sand-75: #f4ede3;
+  --palette-sand-100: #eee5d8;
+  --palette-sand-150: #ece3d6;
+  --palette-sand-200: #e3d7c6;
+  --palette-sand-300: #cdbda7;
+  --palette-sand-400: #a39581;
+  --palette-sand-500: #7b6e5c;
+  --palette-sand-600: #5e5344;
+  --palette-sand-900: #201a13;
 
+  /* Deep teal */
+  --palette-teal-50: #ddf1ec;
+  --palette-teal-100: #bfe5dc;
+  --palette-teal-300: #5eead4;
+  --palette-teal-500: #14b8a6;
+  --palette-teal-600: #0f766e;
+  --palette-teal-700: #115e59;
+  --palette-teal-800: #0f5753;
+  --palette-teal-850: #0b4643;
+  --palette-teal-900: #0a3d3a;
+
+  /* Night (scanner) */
+  --palette-night-950: #0b0d13;
+  --palette-night-925: #0f121a;
+  --palette-night-900: #141823;
+  --palette-night-850: #1c2131;
+  --palette-night-800: #262c3e;
+  --palette-night-line-soft: #1d2232;
+  --palette-night-line: #283044;
+  --palette-night-line-strong: #394259;
+  --palette-night-fg: #eef1f8;
+  --palette-night-fg-muted: #a9b0c3;
+  --palette-night-fg-subtle: #8a92a8;
+  --palette-night-fg-faint: #646c82;
+  --palette-indigo-300: #bac5ff;
+  --palette-indigo-400: #9aaaff;
+  --palette-indigo-900: #1b2246;
+  --palette-indigo-800: #2b3570;
+
+  /* Door states */
   --palette-green-50: #ecfdf3;
-  --palette-green-400: #4ade80;
   --palette-green-100: #d1fadf;
+  --palette-green-300: #6ee7a0;
+  --palette-green-400: #4ade80;
+  --palette-green-500: #22c55e;
   --palette-green-600: #12873f;
   --palette-green-700: #0b6e32;
+  --palette-green-night-soft: #0f2a1c;
+  --palette-green-night-muted: #1a4a30;
 
   --palette-red-50: #fef3f2;
   --palette-red-100: #fee4e2;
+  --palette-red-300: #ff8f82;
   --palette-red-600: #c8261b;
   --palette-red-700: #a51c13;
+  --palette-red-night-soft: #3a1513;
+  --palette-red-night-muted: #5c1f1a;
 
   --palette-amber-50: #fffaeb;
   --palette-amber-100: #fef0c7;
+  --palette-amber-300: #f7c46a;
   --palette-amber-500: #f5a30b;
   --palette-amber-600: #d68100;
   --palette-amber-800: #7a4304;
+  --palette-amber-night-soft: #3a2a0c;
+  --palette-amber-night-muted: #5a410f;
 }
 
 /* ---------------------------------------------------------------- 2. semantic */
 /* static: every token is emitted as a CSS variable, so layer 3 can reference it */
 @theme static {
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    'Plus Jakarta Sans Variable', 'IBM Plex Sans Arabic', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, Arial, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Surfaces, back to front */
-  --color-canvas: var(--palette-ink-50);
-  --color-surface: var(--palette-ink-0);
-  --color-surface-sunk: var(--palette-ink-50);
-  --color-surface-muted: var(--palette-ink-100);
-  --color-surface-strong: var(--palette-ink-200);
-  --color-overlay: rgb(22 25 34 / 0.5);
+  --color-canvas: var(--palette-sand-50);
+  --color-surface: var(--palette-sand-0);
+  --color-surface-sunk: var(--palette-sand-75);
+  --color-surface-muted: var(--palette-sand-150);
+  --color-surface-strong: var(--palette-sand-200);
+  --color-overlay: rgb(32 26 19 / 0.5);
 
   /* Text */
-  --color-fg: var(--palette-ink-900);
-  --color-fg-muted: var(--palette-ink-600);
-  --color-fg-subtle: var(--palette-ink-500);
-  --color-fg-faint: var(--palette-ink-400);
-  --color-fg-inverse: var(--palette-ink-0);
+  --color-fg: var(--palette-sand-900);
+  --color-fg-muted: var(--palette-sand-600);
+  --color-fg-subtle: var(--palette-sand-500);
+  --color-fg-faint: var(--palette-sand-400);
+  --color-fg-inverse: var(--palette-sand-0);
 
   /* Lines */
-  --color-line-soft: var(--palette-ink-100);
-  --color-line: var(--palette-ink-200);
-  --color-line-strong: var(--palette-ink-300);
+  --color-line-soft: var(--palette-sand-100);
+  --color-line: var(--palette-sand-200);
+  --color-line-strong: var(--palette-sand-300);
 
-  /* Primary action: the dark ink button */
-  --color-primary: var(--palette-ink-900);
-  --color-primary-hover: var(--palette-ink-700);
-  --color-primary-active: var(--palette-ink-800);
-  --color-on-primary: var(--palette-ink-0);
+  /* Primary action: deep teal */
+  --color-primary: var(--palette-teal-800);
+  --color-primary-hover: var(--palette-teal-850);
+  --color-primary-active: var(--palette-teal-900);
+  --color-on-primary: var(--palette-sand-0);
 
-  /* Brand: links, focus, the current page */
-  --color-brand: var(--palette-blue-600);
-  --color-brand-strong: var(--palette-blue-700);
-  --color-brand-bright: var(--palette-blue-500);
-  --color-brand-soft: var(--palette-blue-50);
-  --color-brand-muted: var(--palette-blue-100);
+  /* Brand: links, focus, the current page, event headers */
+  --color-brand: var(--palette-teal-600);
+  --color-brand-strong: var(--palette-teal-700);
+  --color-brand-bright: var(--palette-teal-500);
+  --color-brand-soft: var(--palette-teal-50);
+  --color-brand-muted: var(--palette-teal-100);
+  /* Text and accents on a brand-coloured band (event header, pass background) */
+  --color-on-brand: var(--palette-sand-0);
+  --color-on-brand-muted: var(--palette-teal-100);
+  --color-on-brand-accent: var(--palette-teal-300);
 
   /* Door states. -soft: tinted background, -muted: ring/badge, -fg: text on soft */
   --color-success: var(--palette-green-600);
@@ -111,31 +156,35 @@
   --color-warning-muted: var(--palette-amber-100);
   --color-warning-fg: var(--palette-amber-800);
 
-  --color-focus: var(--palette-blue-500);
+  --color-focus: var(--palette-teal-500);
 
-  /* Dark surfaces (scanner screen) and text on saturated door-state panels */
-  --color-inverse: var(--palette-ink-900);
-  --color-inverse-raised: var(--palette-ink-800);
-  --color-inverse-line: var(--palette-ink-600);
-  --color-on-inverse: var(--palette-ink-0);
-  --color-on-inverse-soft: var(--palette-ink-200);
-  --color-on-inverse-muted: var(--palette-ink-300);
-  --color-on-status: var(--palette-ink-0);
-  --color-scrim: rgb(22 25 34 / 0.85);
+  /* Dark surfaces and text on saturated door-state panels */
+  --color-inverse: var(--palette-night-950);
+  --color-inverse-raised: var(--palette-night-900);
+  --color-inverse-line: var(--palette-night-line);
+  --color-on-inverse: var(--palette-white);
+  --color-on-inverse-soft: var(--palette-night-fg);
+  --color-on-inverse-muted: var(--palette-night-fg-subtle);
+  --color-on-status: var(--palette-white);
+  --color-on-status-muted: var(--palette-green-100);
+  --color-scrim: rgb(11 13 19 / 0.85);
 
   /* Scanner camera view */
   --color-camera: var(--palette-black);
   --color-camera-frame: rgb(255 255 255 / 0.85);
 
+  /* The QR code itself stays black on white in every theme (scannability). */
+  --color-qr-bg: var(--palette-white);
+
   /* ------------------------------------------------------------ 3. component */
-  --radius-control: 0.75rem; /* buttons, inputs, selects */
-  --radius-card: 1rem;
+  --radius-control: 0.9rem; /* buttons, inputs, selects */
+  --radius-card: 1.35rem;
   --radius-pill: 999px;
-  --shadow-card: 0 1px 2px rgb(22 25 34 / 0.05), 0 1px 1px rgb(22 25 34 / 0.03);
-  --shadow-raised: 0 8px 24px -12px rgb(22 25 34 / 0.25);
+  --shadow-card: 0 1px 2px rgb(70 50 20 / 0.05), 0 12px 30px -20px rgb(70 50 20 / 0.32);
+  --shadow-raised: 0 18px 40px -22px rgb(70 50 20 / 0.45);
   /* Darkens the camera image around the scan frame */
   --shadow-camera-mask: 0 0 0 9999px rgb(0 0 0 / 0.35);
-  --shadow-tabbar: 0 -1px 0 rgb(22 25 34 / 0.06), 0 -8px 24px -16px rgb(22 25 34 / 0.2);
+  --shadow-tabbar: 0 -1px 0 rgb(70 50 20 / 0.05), 0 -10px 24px -18px rgb(70 50 20 / 0.25);
 }
 
 :root {
@@ -147,8 +196,59 @@
 
   /* Navigation */
   --nav-height: 3.5rem;
-  --tabbar-height: 4rem;
+  --tabbar-height: 4.25rem;
   --nav-active-bg: var(--color-brand-soft);
-  --nav-active-fg: var(--color-brand-strong);
+  --nav-active-fg: var(--color-primary);
   --nav-idle-fg: var(--color-fg-muted);
+}
+
+/* ------------------------------------------------- Night theme (door scanner) */
+/* Redefines layer 2 only; everything inside an element with this class follows. */
+.theme-night {
+  color-scheme: dark;
+  --color-canvas: var(--palette-night-950);
+  --color-surface: var(--palette-night-900);
+  --color-surface-sunk: var(--palette-night-925);
+  --color-surface-muted: var(--palette-night-850);
+  --color-surface-strong: var(--palette-night-800);
+  --color-overlay: rgb(0 0 0 / 0.6);
+
+  --color-fg: var(--palette-night-fg);
+  --color-fg-muted: var(--palette-night-fg-muted);
+  --color-fg-subtle: var(--palette-night-fg-subtle);
+  --color-fg-faint: var(--palette-night-fg-faint);
+
+  --color-line-soft: var(--palette-night-line-soft);
+  --color-line: var(--palette-night-line);
+  --color-line-strong: var(--palette-night-line-strong);
+
+  --color-primary: var(--palette-indigo-400);
+  --color-primary-hover: var(--palette-indigo-300);
+  --color-primary-active: var(--palette-indigo-400);
+  --color-on-primary: var(--palette-night-950);
+
+  --color-brand: var(--palette-indigo-400);
+  --color-brand-strong: var(--palette-indigo-300);
+  --color-brand-bright: var(--palette-indigo-400);
+  --color-brand-soft: var(--palette-indigo-900);
+  --color-brand-muted: var(--palette-indigo-800);
+
+  --color-success-bright: var(--palette-green-500);
+  --color-success-soft: var(--palette-green-night-soft);
+  --color-success-muted: var(--palette-green-night-muted);
+  --color-success-fg: var(--palette-green-300);
+  --color-danger-soft: var(--palette-red-night-soft);
+  --color-danger-muted: var(--palette-red-night-muted);
+  --color-danger-fg: var(--palette-red-300);
+  --color-warning-soft: var(--palette-amber-night-soft);
+  --color-warning-muted: var(--palette-amber-night-muted);
+  --color-warning-fg: var(--palette-amber-300);
+
+  --color-focus: var(--palette-indigo-400);
+  --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02), 0 12px 32px -18px rgb(0 0 0 / 0.8);
+  --nav-active-bg: var(--palette-indigo-900);
+  --nav-active-fg: var(--palette-indigo-300);
+  --nav-idle-fg: var(--palette-night-fg-subtle);
+  background-color: var(--color-canvas);
+  color: var(--color-fg);
 }

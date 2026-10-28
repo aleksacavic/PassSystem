@@ -259,3 +259,22 @@ All colours, radii, shadows and control sizes live in `src/styles/tokens.css`, i
 Pages use only semantic utilities and the shared components (`Button`, `IconButton`, `Card`, `Badge`, `Alert`,
 `SegmentedControl`, fields). Icons come from `lucide-react`. Raw hex values remain only where a brand or export
 requires them (Google Wallet button artwork, QR poster canvas).
+
+The look is **Sand & Teal**: warm sand canvas, deep teal primary. The scanner (`/scan`) uses **Midnight**, a dark
+theme applied by the `.theme-night` class on the admin layout. It redefines layer 2 only, so every component
+switches without its own dark variant. Fonts are self-hosted (Plus Jakarta Sans, plus IBM Plex Sans Arabic for
+Arabic) because the CSP allows `font-src 'self'` only; `vite.config.ts` keeps fonts out of inlining for the same
+reason. `src/styles/tokens.test.ts` fails the build if a page uses a raw Tailwind colour class.
+
+## Languages
+
+Guest pages (`/`, `/e/:slug`, `/pass`) are available in English and Arabic. A switch in the header changes the
+language; the choice is remembered on the device (`passsystem.lang` in localStorage). Arabic pages run
+right-to-left (`<html dir="rtl">`) and use Latin digits. Strings live in `src/lib/i18n.ts`; the `ar` dictionary
+must have every `en` key (type-checked). Staff pages stay in English. Event text written by the organizer (name,
+description, attendance terms) is shown as written.
+
+The Arabic strings were written without a native-speaker review; have one check them before relying on them.
+
+Passes include **Add to calendar**: an `.ics` file built in the browser (`src/lib/calendar.ts`) with the event
+time, venue and the pass link. Its UID is derived from a hash of the pass token, not the token itself.

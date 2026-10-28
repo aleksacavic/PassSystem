@@ -87,11 +87,15 @@ function safeZone(tz?: string | null): string | undefined {
   return tz && isValidTimeZone(tz) ? tz : undefined
 }
 
-export function formatDateTime(iso: string | null | undefined, timeZone?: string | null): string {
+export function formatDateTime(
+  iso: string | null | undefined,
+  timeZone?: string | null,
+  locale?: string,
+): string {
   if (!iso) return '—'
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: safeZone(timeZone),
@@ -102,10 +106,11 @@ export function formatEventDate(
   startsAt: string,
   endsAt: string | null | undefined,
   timeZone?: string | null,
+  locale?: string,
 ): string {
   const tz = safeZone(timeZone)
   const start = new Date(startsAt)
-  const full = new Intl.DateTimeFormat(undefined, {
+  const full = new Intl.DateTimeFormat(locale, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -119,7 +124,7 @@ export function formatEventDate(
   const sameDay =
     isoToZonedInput(startsAt, tz ?? 'UTC').slice(0, 10) === isoToZonedInput(endsAt, tz ?? 'UTC').slice(0, 10)
   if (sameDay) {
-    const time = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', timeZone: tz })
+    const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', timeZone: tz })
     return `${full.format(start)} – ${time.format(end)}`
   }
   return `${full.format(start)} – ${full.format(end)}`
@@ -144,5 +149,20 @@ export function zoneLabel(iso: string, timeZone: string): string {
     return parts.find((p) => p.type === 'timeZoneName')?.value ?? timeZone
   } catch {
     return timeZone
+  }
+}
+
+/** Calendar-tile parts in the event's zone: { month: "NOV", day: "06", weekday: "Fri", time: "20:00" }. */
+export function dateParts(iso: string, timeZone?: string | null, locale?: string) {
+  const tz = safeZone(timeZone)
+  const date = new Date(iso)
+  const part = (opts: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat(locale, { ...opts, timeZone: tz }).format(date)
+  return {
+    month: part({ month: 'short' }).replace('.', '').toLocaleUpperCase(locale),
+    day: part({ day: '2-digit' }),
+    weekday: part({ weekday: 'short' }),
+    date: part({ weekday: 'short', day: 'numeric', month: 'short' }),
+    time: part({ hour: '2-digit', minute: '2-digit' }),
   }
 }

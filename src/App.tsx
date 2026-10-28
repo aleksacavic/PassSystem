@@ -5,6 +5,7 @@ import { RequireAuth } from './auth/RequireAuth'
 import { AdminLayout } from './components/AdminLayout'
 import { PageSpinner } from './components/ui'
 import { env } from './lib/env'
+import { LangProvider } from './components/LangProvider'
 import HomePage from './pages/public/HomePage'
 import RegisterPage from './pages/public/RegisterPage'
 import PassPage from './pages/public/PassPage'
@@ -50,9 +51,19 @@ const router = createBrowserRouter([
     element: <Root />,
     errorElement: <RouteErrorPage />,
     children: [
-      { path: '/', element: <HomePage /> },
-      { path: '/e/:slug', element: <RegisterPage /> },
-      { path: '/pass', element: <PassPage /> },
+      {
+        // Guest pages: English or Arabic (right-to-left).
+        element: (
+          <LangProvider>
+            <Outlet />
+          </LangProvider>
+        ),
+        children: [
+          { path: '/', element: <HomePage /> },
+          { path: '/e/:slug', element: <RegisterPage /> },
+          { path: '/pass', element: <PassPage /> },
+        ],
+      },
       {
         element: <Lazy />,
         children: [

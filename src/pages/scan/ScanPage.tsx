@@ -1,10 +1,22 @@
-import { AlertTriangle, Check, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  Camera,
+  CameraOff,
+  Check,
+  Flashlight,
+  FlashlightOff,
+  SwitchCamera,
+  Volume2,
+  VolumeX,
+  X,
+} from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
 import { admitPass, getEventSummaries, type AdmitOutcome } from '../../lib/api'
 import { formatEventDate, formatTime } from '../../lib/datetime'
 import { extractPassToken } from '../../lib/passToken'
 import { randomUuid } from '../../lib/random'
+import { usePolling } from '../../lib/usePolling'
 import type { EventSummary } from '../../lib/types'
 import { ScanGate } from '../../scanner/scanGate'
 import { feedback, unlockAudio } from '../../scanner/feedback'
@@ -117,6 +129,8 @@ function Scanner({ eventId }: { eventId: string }) {
   }, [eventId])
 
   useEffect(refreshEvent, [refreshEvent])
+  // Other doors admit people too: keep the live count current.
+  usePolling(refreshEvent, 15_000)
 
   const submit = useCallback(
     // attemptId identifies one scan of one credential. Retry reuses it, so a
@@ -231,27 +245,40 @@ function Scanner({ eventId }: { eventId: string }) {
   const running = cameraStatus === 'running'
   const starting = cameraStatus === 'starting'
   const remaining = Math.max(0, event.registered_count - event.checked_in_count)
+  const pct = event.registered_count ? Math.round((event.checked_in_count / event.registered_count) * 100) : 0
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
-      {/* Persistent event context */}
-      <div
-        className="flex items-center justify-between gap-3 rounded-card bg-inverse px-4 py-3 text-on-inverse"
-        data-testid="scan-event"
-      >
-        <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-wide text-on-inverse-muted uppercase">Scanning for</p>
-          <p className="truncate text-lg font-bold">{event.name}</p>
-          <p className="text-xs text-on-inverse-muted">
-            {event.checked_in_count} admitted · {remaining} to go
-          </p>
+      {/* Persistent event context with the live count */}
+      <div className="space-y-3 rounded-card bg-surface p-4 ring-1 ring-line-soft" data-testid="scan-event">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold tracking-[0.14em] text-fg-subtle uppercase">Scanning for</p>
+            <p className="truncate text-lg font-extrabold">{event.name}</p>
+          </div>
+          <Link
+            to="/scan"
+            className="shrink-0 rounded-control px-3 py-2 text-sm font-semibold text-fg-muted ring-1 ring-line hover:bg-surface-muted"
+          >
+            Change
+          </Link>
         </div>
-        <Link
-          to="/scan"
-          className="shrink-0 rounded-control px-3 py-2 text-sm font-semibold text-on-inverse-soft ring-1 ring-inverse-line hover:bg-inverse-raised"
+        <div
+          className="flex items-center gap-3"
+          aria-label={`${event.checked_in_count} of ${event.registered_count} checked in`}
         >
-          Change
-        </Link>
+          <p className="shrink-0 tabular-nums">
+            <span className="text-3xl leading-none font-extrabold">{event.checked_in_count}</span>
+            <span className="ms-1 text-base font-bold text-fg-subtle">/ {event.registered_count} in</span>
+          </p>
+          <div className="h-2 flex-1 overflow-hidden rounded-pill bg-surface-strong" aria-hidden="true">
+            <div
+              className="h-full rounded-pill bg-success-bright transition-[width]"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="shrink-0 text-xs font-bold text-fg-subtle">{remaining} to come</p>
+        </div>
       </div>
 
       {event.status === 'archived' && (
@@ -259,7 +286,7 @@ function Scanner({ eventId }: { eventId: string }) {
       )}
 
       {/* Camera */}
-      <div className="relative overflow-hidden rounded-card bg-camera" style={{ aspectRatio: '1 / 1' }}>
+      <div className="relative overflow-hidden rounded-[1.75rem] bg-camera" style={{ aspectRatio: '1 / 1' }}>
         <video
           ref={videoRef}
           className="absolute inset-0 size-full object-cover"
@@ -293,7 +320,7 @@ function Scanner({ eventId }: { eventId: string }) {
                 {cameraStatus !== 'unsupported' && (
                   <Button
                     size="lg"
-                    variant="secondary"
+                    icon={Camera}
                     onClick={() => {
                       unlockAudio()
                       void startCamera()
@@ -316,21 +343,41 @@ function Scanner({ eventId }: { eventId: string }) {
 
       {/* Camera controls */}
       {running && (
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={stopCamera}>
+        <div className="grid grid-cols-4 gap-2">
+          <Button
+            variant="secondary"
+            icon={CameraOff}
+            onClick={stopCamera}
+            className="flex-col gap-1 py-2 text-xs"
+          >
             Stop camera
           </Button>
-          {torchSupported && (
-            <Button variant="secondary" onClick={() => void toggleTorch()} aria-pressed={torchOn}>
-              {torchOn ? 'Torch off' : 'Torch on'}
-            </Button>
-          )}
-          {cameraCount > 1 && (
-            <Button variant="secondary" onClick={() => void switchCamera()}>
-              Switch camera
-            </Button>
-          )}
-          <Button variant="ghost" onClick={() => setSoundOn((s) => !s)} aria-pressed={soundOn}>
+          <Button
+            variant="secondary"
+            icon={torchOn ? FlashlightOff : Flashlight}
+            onClick={() => void toggleTorch()}
+            aria-pressed={torchOn}
+            disabled={!torchSupported}
+            className="flex-col gap-1 py-2 text-xs"
+          >
+            {torchOn ? 'Torch off' : 'Torch on'}
+          </Button>
+          <Button
+            variant="secondary"
+            icon={SwitchCamera}
+            onClick={() => void switchCamera()}
+            disabled={cameraCount < 2}
+            className="flex-col gap-1 py-2 text-xs"
+          >
+            Switch camera
+          </Button>
+          <Button
+            variant="secondary"
+            icon={soundOn ? Volume2 : VolumeX}
+            onClick={() => setSoundOn((on) => !on)}
+            aria-pressed={soundOn}
+            className="flex-col gap-1 py-2 text-xs"
+          >
             Sound {soundOn ? 'on' : 'off'}
           </Button>
         </div>
