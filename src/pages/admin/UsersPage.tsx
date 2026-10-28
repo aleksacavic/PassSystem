@@ -227,8 +227,8 @@ export default function UsersPage() {
                   )}
                 </div>
                 <p className="text-xs text-ink-500">
-                  Send it by WhatsApp, SMS or any chat. It works once and expires after the time set in
-                  Supabase (Authentication → Emails, default 24 hours). Anyone with the link can claim the
+                  Send it by WhatsApp, SMS or any chat. It works once and expires after the “Email OTP
+                  expiration” time set in Supabase (1 hour by default). Anyone with the link can claim the
                   account, so send it only to that person.
                 </p>
               </div>
