@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../../auth/AuthProvider'
-import { listProfiles, setUserAdmin } from '../../lib/api'
+import { diagnoseClientIp, listProfiles, setUserAdmin, type ClientIpDiagnosis } from '../../lib/api'
 import { formatDateTime } from '../../lib/datetime'
 import type { Profile } from '../../lib/types'
 import { PageHeader } from '../../components/AdminLayout'
@@ -10,6 +10,7 @@ export default function UsersPage() {
   const { session } = useAuth()
   const [users, setUsers] = useState<Profile[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [ipCheck, setIpCheck] = useState<ClientIpDiagnosis | null>(null)
 
   const load = useCallback(() => {
     listProfiles()
@@ -17,6 +18,11 @@ export default function UsersPage() {
       .catch((e: Error) => setError(e.message))
   }, [])
   useEffect(load, [load])
+  useEffect(() => {
+    diagnoseClientIp()
+      .then(setIpCheck)
+      .catch(() => undefined)
+  }, [])
 
   async function toggle(u: Profile) {
     const verb = u.is_admin ? 'Remove administrator rights from' : 'Make administrator:'
@@ -71,6 +77,16 @@ export default function UsersPage() {
           </ul>
         )}
       </Card>
+      {ipCheck && (
+        <p className="mt-4 text-xs text-ink-500" data-testid="ip-check">
+          Deployment check — rate limiting identifies clients by: <strong>{ipCheck.source}</strong>
+          {ipCheck.source === 'cf-connecting-ip'
+            ? ' (expected on Supabase Cloud)'
+            : ipCheck.source === 'x-real-ip'
+              ? ' (expected on the local stack; on Supabase Cloud expect cf-connecting-ip)'
+              : ' — check your proxy configuration (see README).'}
+        </p>
+      )}
     </div>
   )
 }

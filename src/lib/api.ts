@@ -259,6 +259,18 @@ export async function setUserAdmin(userId: string, isAdmin: boolean): Promise<vo
   if (error) fail(error)
 }
 
+export interface ClientIpDiagnosis {
+  source: 'cf-connecting-ip' | 'x-real-ip' | 'x-forwarded-for(last)' | 'none'
+  cf_connecting_ip_present?: boolean
+}
+
+/** Admin-only: which request header the rate limiter uses as the client IP. */
+export async function diagnoseClientIp(): Promise<ClientIpDiagnosis> {
+  const { data, error } = await supabase.rpc('diagnose_client_ip')
+  if (error) fail(error)
+  return data as ClientIpDiagnosis
+}
+
 /* ---------------------------------------------------------------- scanning */
 
 export type AdmitOutcome =

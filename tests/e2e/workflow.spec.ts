@@ -118,7 +118,7 @@ test('organizer → attendee → operator camera scan → event isolation → re
     const opCtx = await camBrowser.newContext({ ...devices['Pixel 7'], baseURL, permissions: ['camera'] })
     const op = watchCsp(await opCtx.newPage())
     await signIn(op, operator.email, operator.password)
-    await op.getByRole('link', { name: 'Scan', exact: true }).click()
+    await op.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Scan' }).click()
     await expect(op.getByTestId('scan-event-option')).toHaveCount(1) // only assigned event
     await op.getByTestId('scan-event-option').click()
     await expect(op.getByTestId('scan-event')).toContainText(`Event A ${suffix}`)
