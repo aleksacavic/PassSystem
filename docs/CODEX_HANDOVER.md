@@ -317,5 +317,5 @@ BarcodeDetector path, Firefox Android wasm path.
 - Branch: `claude/passsystem-implementation-h1i74q`
 - Implementation commits: `5fe0611` (application), `e21c129` (tests, CI, headers), `91fc6e4` (self-review
   fixes). The documentation commit follows; see `git log`.
-- Pull request: see the PR opened from this branch against `main` (its number is recorded in
+- Pull request: https://github.com/aleksacavic/PassSystem/pull/1 (draft). Numbers are also recorded in
   `IMPLEMENTATION_STATUS.md` after creation).

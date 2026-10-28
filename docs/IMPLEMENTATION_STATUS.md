@@ -120,4 +120,4 @@ secret.
 
 ## Pull request
 
-- PR: opened from `claude/passsystem-implementation-h1i74q` into `main` (number recorded below once created).
+- PR: https://github.com/aleksacavic/PassSystem/pull/1 (draft, `claude/passsystem-implementation-h1i74q` → `main`)
