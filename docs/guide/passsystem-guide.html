@@ -1,0 +1,642 @@
+<title>PassSystem Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: a door-side story. Hero demo of one pass meeting the scanner, then roles, a try-it scanner, and the rules. */
+:root {
+  --bg: #f5f6f9;
+  --surface: #ffffff;
+  --sunk: #eceef3;
+  --fg: #17181d;
+  --muted: #5c5e6b;
+  --line: #dcdee6;
+  --accent: #2a58c4;
+  --accent-soft: #dfe8fb;
+  --ok: #12873f;
+  --ok-soft: #d6f5e1;
+  --bad: #c8261b;
+  --bad-soft: #fde1de;
+  --warn: #d68100;
+  --warn-soft: #fdedc8;
+  --phone: #17181d;
+  --on-strong: #ffffff;
+  --shadow: 0 1px 2px rgb(23 24 29 / .06), 0 12px 32px -12px rgb(23 24 29 / .18);
+  --display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --body: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1116; --surface: #171a21; --sunk: #1e222b; --fg: #eceef4; --muted: #a2a6b4; --line: #2b303b;
+    --accent: #7ea2f5; --accent-soft: #1d2a47; --ok: #3fcb76; --ok-soft: #12301f; --bad: #ff7a6e; --bad-soft: #3a1714;
+    --warn: #f5b13b; --warn-soft: #3a2a0c; --phone: #050608; --on-strong: #0f1116;
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 16px 40px -16px rgb(0 0 0 / .7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1116; --surface: #171a21; --sunk: #1e222b; --fg: #eceef4; --muted: #a2a6b4; --line: #2b303b;
+  --accent: #7ea2f5; --accent-soft: #1d2a47; --ok: #3fcb76; --ok-soft: #12301f; --bad: #ff7a6e; --bad-soft: #3a1714;
+  --warn: #f5b13b; --warn-soft: #3a2a0c; --phone: #050608; --on-strong: #0f1116;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 16px 40px -16px rgb(0 0 0 / .7);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+.wrap { max-width: 1080px; margin-inline: auto; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.015em; }
+h2 { font-size: clamp(1.7rem, 3.4vw, 2.4rem); font-weight: 800; line-height: 1.08; }
+h3 { font-size: 1.15rem; font-weight: 700; }
+p { margin: 0; }
+a { color: var(--accent); }
+.eyebrow { font-family: var(--mono); font-size: .74rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.lead { color: var(--muted); max-width: 60ch; font-size: 1.05rem; }
+section { padding-block: 64px 0; }
+.sec-head { display: grid; gap: 10px; margin-bottom: 28px; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+/* ---------- top bar ---------- */
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 20px; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 800; font-size: 1.15rem; }
+.brand-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--fg); display: grid; place-items: center; }
+.brand-mark span { width: 12px; height: 12px; border: 2.5px solid var(--bg); border-radius: 3px; }
+.bar a.open { font-weight: 600; font-size: .92rem; text-decoration: none; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg); background: var(--surface); }
+.bar a.open:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---------- hero ---------- */
+.hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 40px; align-items: center; padding-block: 28px 8px; }
+.hero h1 { font-size: clamp(2.6rem, 7vw, 4.8rem); font-weight: 800; line-height: .95; letter-spacing: -0.035em; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero-copy { display: grid; gap: 20px; min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-size: .85rem; font-weight: 500; padding: 6px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); }
+
+.stage { position: relative; height: 420px; border-radius: 28px; background:
+  radial-gradient(circle at 70% 20%, var(--accent-soft), transparent 60%), var(--sunk);
+  overflow: hidden; border: 1px solid var(--line); }
+.phone { position: absolute; width: 168px; height: 320px; border-radius: 30px; background: var(--phone); padding: 10px; box-shadow: var(--shadow); }
+.screen { width: 100%; height: 100%; border-radius: 22px; background: var(--surface); overflow: hidden; position: relative; display: flex; flex-direction: column; }
+.guest { left: 9%; top: 52px; transition: transform 1.1s cubic-bezier(.6,.05,.25,1); }
+.guest.lift { transform: translate(34px, -6px) rotate(-6deg); }
+.pass-top { background: var(--accent); color: #fff; padding: 14px 12px 12px; }
+.pass-top small { font-family: var(--mono); font-size: .58rem; letter-spacing: .1em; opacity: .85; }
+.pass-top b { display: block; font-family: var(--display); font-size: .98rem; line-height: 1.1; margin-top: 4px; }
+.pass-body { flex: 1; display: grid; place-items: center; gap: 6px; padding: 10px; align-content: center; }
+.qr { width: 104px; height: 104px; }
+.qr rect { fill: var(--fg); }
+.code { font-family: var(--mono); font-size: .62rem; color: var(--muted); letter-spacing: .06em; }
+.holder { font-size: .72rem; font-weight: 600; }
+
+.door { right: 8%; top: 64px; }
+.door .screen { background: #000; }
+.viewfinder { position: absolute; inset: 0; display: grid; place-items: center; }
+.frame { width: 110px; height: 110px; position: relative; }
+.frame i { position: absolute; width: 22px; height: 22px; border: 3px solid #fff; }
+.frame i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; border-radius: 6px 0 0 0; }
+.frame i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; border-radius: 0 6px 0 0; }
+.frame i:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; border-radius: 0 0 0 6px; }
+.frame i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-radius: 0 0 6px 0; }
+.sweep { position: absolute; left: 6px; right: 6px; height: 2px; background: #7ea2f5; box-shadow: 0 0 12px #7ea2f5; top: 8px; animation: sweep 1.6s ease-in-out infinite alternate; }
+@keyframes sweep { to { top: 100px; } }
+.door-label { position: absolute; top: 14px; left: 0; right: 0; text-align: center; color: #fff; font-family: var(--mono); font-size: .58rem; letter-spacing: .12em; opacity: .75; }
+.verdict { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 6px; text-align: center; padding: 12px;
+  color: #fff; font-family: var(--display); opacity: 0; transform: scale(1.04); transition: opacity .25s, transform .25s; }
+.verdict.show { opacity: 1; transform: none; }
+.verdict b { font-size: 1.25rem; line-height: 1.05; font-weight: 800; letter-spacing: .01em; }
+.verdict span { font-family: var(--body); font-size: .72rem; opacity: .92; }
+.verdict svg { width: 44px; height: 44px; }
+.v-ok { background: #12873f; } .v-bad { background: #c8261b; }
+.caption { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; font-size: .9rem; font-weight: 600; }
+.caption span { background: var(--surface); padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); display: inline-block; transition: opacity .3s; }
+
+/* ---------- flow ---------- */
+.flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; counter-reset: step; }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px; display: grid; gap: 8px; align-content: start; position: relative; }
+.step::before { counter-increment: step; content: counter(step); font-family: var(--mono); font-weight: 600; font-size: .78rem; width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.step p { color: var(--muted); font-size: .94rem; }
+.step .who { font-family: var(--mono); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- roles ---------- */
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.tab { font: 600 .95rem var(--body); padding: 10px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.tab .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--role); }
+.tab[aria-selected="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.tab:hover:not([aria-selected="true"]) { border-color: var(--fg); }
+.role-panel { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 28px; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 28px; }
+.role-panel[hidden] { display: none !important; }
+.role-panel.enter { animation: rise .45s cubic-bezier(.2,.7,.2,1); }
+@keyframes rise { from { opacity: .3; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.role-intro { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.role-badge { justify-self: start; font-family: var(--mono); font-size: .7rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; padding: 5px 10px; border-radius: 6px; background: var(--role-soft); color: var(--role); }
+.role-intro h3 { font-size: 1.6rem; font-weight: 800; }
+.role-intro p { color: var(--muted); }
+.cando { display: grid; gap: 6px; padding: 0; margin: 0; list-style: none; font-size: .94rem; }
+.cando li { display: flex; gap: 8px; align-items: baseline; }
+.cando li::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: var(--role); flex: none; transform: translateY(-1px); }
+.howto { display: grid; gap: 12px; min-width: 0; }
+.task { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.task summary { list-style: none; cursor: pointer; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; }
+.task summary::-webkit-details-marker { display: none; }
+.task summary::after { content: "+"; font-family: var(--mono); font-size: 1.1rem; color: var(--muted); transition: transform .2s; }
+.task[open] summary::after { transform: rotate(45deg); }
+.task[open] summary { border-bottom: 1px solid var(--line); background: var(--sunk); }
+.task ol { margin: 0; padding: 14px 16px 16px 36px; display: grid; gap: 6px; color: var(--fg); font-size: .94rem; }
+.task ol li::marker { font-family: var(--mono); color: var(--muted); font-size: .8rem; }
+.ui { font-family: var(--mono); font-size: .8em; padding: 1px 6px; border-radius: 5px; background: var(--sunk); border: 1px solid var(--line); white-space: nowrap; }
+.task .note { padding: 0 16px 16px; color: var(--muted); font-size: .88rem; }
+
+.r-admin { --role: var(--accent); --role-soft: var(--accent-soft); }
+.r-org { --role: #7a4fd6; --role-soft: #ebe3fb; }
+.r-op { --role: var(--ok); --role-soft: var(--ok-soft); }
+.r-guest { --role: var(--warn); --role-soft: var(--warn-soft); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .r-org { --role: #b597f7; --role-soft: #2b2145; } }
+:root[data-theme="dark"] .r-org { --role: #b597f7; --role-soft: #2b2145; }
+
+/* ---------- simulator ---------- */
+.sim { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: center; }
+.sim-controls { display: grid; gap: 10px; min-width: 0; }
+.sim-btn { text-align: left; font: 500 .96rem var(--body); color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 12px; transition: border-color .15s, transform .15s; }
+.sim-btn:hover { border-color: var(--fg); transform: translateX(2px); }
+.sim-btn small { font-family: var(--mono); font-size: .7rem; color: var(--muted); white-space: nowrap; }
+.sim-state { font-size: .88rem; color: var(--muted); }
+.sim-state b { color: var(--fg); font-family: var(--mono); font-weight: 600; }
+.scanner { justify-self: center; width: min(100%, 320px); aspect-ratio: 9 / 16; max-height: 520px; border-radius: 34px; background: var(--phone); padding: 12px; box-shadow: var(--shadow); }
+.scanner .screen { background: #000; }
+.result { position: absolute; inset: 0; display: grid; align-content: center; justify-items: center; gap: 10px; text-align: center; padding: 22px; color: #fff; font-family: var(--display);
+  opacity: 0; transition: opacity .2s; }
+.result.show { opacity: 1; animation: pop .35s cubic-bezier(.2,.9,.3,1.3); }
+@keyframes pop { from { transform: scale(.94); } to { transform: none; } }
+.result b { font-size: 1.9rem; line-height: 1; font-weight: 800; }
+.result p { font-family: var(--body); font-size: .95rem; opacity: .95; max-width: 26ch; }
+.result .do { margin-top: 6px; font-family: var(--mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; padding: 6px 10px; border-radius: 6px; background: rgb(0 0 0 / .22); }
+.result.ok { background: #12873f; } .result.bad { background: #c8261b; } .result.warn { background: #f5a30b; color: #2a1a00; }
+.result.warn .do { background: rgb(255 255 255 / .4); }
+.idle-hint { position: absolute; bottom: 22px; left: 0; right: 0; text-align: center; color: #fff; font-size: .8rem; opacity: .7; }
+
+/* ---------- matrix ---------- */
+.matrix-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: .94rem; }
+th, td { padding: 13px 16px; text-align: left; border-bottom: 1px solid var(--line); }
+thead th { font-family: var(--mono); font-size: .72rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--sunk); }
+tbody tr:last-child td { border-bottom: 0; }
+td.c { text-align: center; width: 13%; }
+.yes, .no, .some { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-weight: 700; font-size: .8rem; }
+.yes { background: var(--ok-soft); color: var(--ok); }
+.no { background: var(--sunk); color: var(--muted); }
+.some { background: var(--warn-soft); color: var(--warn); }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; font-size: .85rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---------- notes ---------- */
+.notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.note-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px; display: grid; gap: 8px; align-content: start; }
+.note-card p { color: var(--muted); font-size: .93rem; }
+.note-card .k { font-family: var(--mono); font-size: .8rem; color: var(--fg); background: var(--sunk); padding: 2px 6px; border-radius: 5px; }
+
+.foot { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; color: var(--muted); font-size: .88rem; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 860px) {
+  .hero, .role-panel, .sim { grid-template-columns: minmax(0, 1fr); }
+  .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .notes { grid-template-columns: minmax(0, 1fr); }
+  .stage { height: 380px; }
+}
+@media (max-width: 480px) {
+  .flow { grid-template-columns: minmax(0, 1fr); }
+  .role-panel { padding: 20px; }
+  .phone { width: 138px; height: 270px; border-radius: 26px; }
+  .qr { width: 84px; height: 84px; }
+  .guest { left: 5%; } .door { right: 5%; }
+  .frame { width: 90px; height: 90px; }
+  @keyframes sweep { to { top: 80px; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="wrap">
+  <header class="bar">
+    <div class="brand"><div class="brand-mark"><span></span></div>PassSystem</div>
+    <a class="open" href="https://passsystem-phi.vercel.app" target="_blank" rel="noopener">Open the app ↗</a>
+  </header>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Event registration &amp; door control</span>
+      <h1>One pass.<br><em>One entry.</em></h1>
+      <p class="lead">Guests register from a link and get a QR pass on their phone. Your door team scans it. The first scan lets them in, and every scan after that is refused, on any phone and at any door.</p>
+      <div class="chips">
+        <span class="chip">No app to install</span>
+        <span class="chip">Works on any phone camera</span>
+        <span class="chip">Attendance terms built in</span>
+        <span class="chip">Google Wallet on Android</span>
+      </div>
+    </div>
+
+    <div class="stage" aria-label="Animation: a guest's pass is scanned twice. The first scan is admitted, the second is refused as already used.">
+      <div class="phone guest" id="guestPhone">
+        <div class="screen">
+          <div class="pass-top"><small>YOUR PASS</small><b>Autumn Gala</b></div>
+          <div class="pass-body">
+            <svg class="qr" viewBox="0 0 21 21" aria-hidden="true" id="heroQr"></svg>
+            <div class="holder">Ana Petrović</div>
+            <div class="code">87J8-13AZ-E9GZ</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone door">
+        <div class="screen">
+          <div class="viewfinder">
+            <div class="door-label">SCANNING · AUTUMN GALA</div>
+            <div class="frame"><i></i><i></i><i></i><i></i><div class="sweep"></div></div>
+          </div>
+          <div class="verdict v-ok" id="vOk">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+            <b>ADMITTED</b><span>Ana Petrović</span>
+          </div>
+          <div class="verdict v-bad" id="vBad">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            <b>ALREADY USED</b><span>Checked in 19:42</span>
+          </div>
+        </div>
+      </div>
+      <div class="caption"><span id="caption">Ana shows her pass at the door</span></div>
+    </div>
+  </div>
+
+  <!-- FLOW -->
+  <section aria-labelledby="flow-h">
+    <div class="sec-head">
+      <span class="eyebrow">From invite to door</span>
+      <h2 id="flow-h">How an event runs</h2>
+    </div>
+    <div class="flow">
+      <div class="step"><span class="who">Administrator</span><h3>Create the event</h3><p>Name, date, venue, capacity and when registration opens. The attendance terms come prefilled.</p></div>
+      <div class="step"><span class="who">Organizer</span><h3>Share the link</h3><p>Publish, then copy the registration link from the event's Overview and send it to guests.</p></div>
+      <div class="step"><span class="who">Guest</span><h3>Register &amp; get a pass</h3><p>Name, optional email and phone, accept the terms. The QR pass appears straight away.</p></div>
+      <div class="step"><span class="who">Operator</span><h3>Scan at the door</h3><p>Green means let them in. Red means don't. Each pass works once.</p></div>
+    </div>
+  </section>
+
+  <!-- ROLES -->
+  <section aria-labelledby="roles-h">
+    <div class="sec-head">
+      <span class="eyebrow">Who does what</span>
+      <h2 id="roles-h">Pick your role</h2>
+      <p class="lead">Everyone signs in at the same site. What you see depends on your role. Administrators run the whole system, and organizers and operators are assigned per event.</p>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Roles">
+      <button class="tab r-admin" role="tab" id="t-admin" aria-controls="p-admin" aria-selected="true"><span class="dot"></span>Administrator</button>
+      <button class="tab r-org" role="tab" id="t-org" aria-controls="p-org" aria-selected="false" tabindex="-1"><span class="dot"></span>Organizer</button>
+      <button class="tab r-op" role="tab" id="t-op" aria-controls="p-op" aria-selected="false" tabindex="-1"><span class="dot"></span>Operator</button>
+      <button class="tab r-guest" role="tab" id="t-guest" aria-controls="p-guest" aria-selected="false" tabindex="-1"><span class="dot"></span>Guest</button>
+    </div>
+
+    <!-- Administrator -->
+    <div class="role-panel r-admin" role="tabpanel" id="p-admin" aria-labelledby="t-admin">
+      <div class="role-intro">
+        <span class="role-badge">Whole system</span>
+        <h3>Administrator</h3>
+        <p>Runs PassSystem: creates events, brings people in, and decides who manages what.</p>
+        <ul class="cando">
+          <li>Create, edit, publish, close and archive every event</li>
+          <li>Invite staff by email and remove accounts</li>
+          <li>Make or remove other administrators</li>
+          <li>Assign organizers and operators to events</li>
+          <li>Everything an organizer and operator can do</li>
+        </ul>
+      </div>
+      <div class="howto">
+        <details class="task" open>
+          <summary>Create an event</summary>
+          <ol>
+            <li>Sign in, then open <span class="ui">Events</span> → <span class="ui">Create event</span>.</li>
+            <li>Fill in name, link name, date and time, time zone, venue and capacity.</li>
+            <li>Set when registration opens and closes (optional).</li>
+            <li>Check the <span class="ui">Attendance terms</span>. Edit the text if needed, or switch off required acceptance.</li>
+            <li>Save, then press <span class="ui">Publish</span> when you're ready for guests.</li>
+          </ol>
+        </details>
+        <details class="task">
+          <summary>Invite a staff member</summary>
+          <ol>
+            <li>Open <span class="ui">Staff</span> in the top menu.</li>
+            <li>Under <span class="ui">Invite staff</span>, enter their email. Tick <span class="ui">Administrator</span> only for people who should run everything.</li>
+            <li>Press <span class="ui">Send invite</span>. They get an email, choose a password, and appear as <span class="ui">Invite pending</span> until they do.</li>
+          </ol>
+          <p class="note">The built-in email service sends only a few emails per hour. If you hit the limit, wait an hour.</p>
+        </details>
+        <details class="task">
+          <summary>Put someone on an event</summary>
+          <ol>
+            <li>Open the event → <span class="ui">Staff</span> tab.</li>
+            <li>Enter their email and choose <span class="ui">Operator</span> (scanning) or <span class="ui">Organizer</span> (full event management).</li>
+            <li>Press <span class="ui">Assign</span>. The event shows up for them at once.</li>
+          </ol>
+        </details>
+        <details class="task">
+          <summary>Remove someone</summary>
+          <ol>
+            <li>Open <span class="ui">Staff</span>. For an administrator, press <span class="ui">Remove admin</span> first.</li>
+            <li>Press <span class="ui">Remove</span> (or <span class="ui">Cancel invite</span>) and confirm.</li>
+            <li>They lose access to every event. Their past check-ins stay in the records.</li>
+          </ol>
+          <p class="note">You can't remove yourself, and the last administrator can't be demoted.</p>
+        </details>
+      </div>
+    </div>
+
+    <!-- Organizer -->
+    <div class="role-panel r-org" role="tabpanel" id="p-org" aria-labelledby="t-org" hidden>
+      <div class="role-intro">
+        <span class="role-badge">Per event</span>
+        <h3>Organizer</h3>
+        <p>Manages one event end to end: the guest list, the door team and what happens on the night.</p>
+        <ul class="cando">
+          <li>Edit event details, attendance terms and status</li>
+          <li>Search, revoke, restore and reissue guest passes</li>
+          <li>Export the guest list to CSV</li>
+          <li>Add operators to their event</li>
+          <li>See every scan in the Activity tab, and scan passes</li>
+        </ul>
+      </div>
+      <div class="howto">
+        <details class="task" open>
+          <summary>Share the registration link</summary>
+          <ol>
+            <li>Open the event. On <span class="ui">Overview</span>, find <span class="ui">Share registration</span>.</li>
+            <li>Press <span class="ui">Copy link</span> and send it by message, email or social post.</li>
+            <li>The Overview counters show registrations and check-ins live.</li>
+          </ol>
+        </details>
+        <details class="task">
+          <summary>Handle a guest problem</summary>
+          <ol>
+            <li>Open the event → <span class="ui">Attendees</span>, and search by name, email or phone.</li>
+            <li><span class="ui">Reissue</span> makes a new QR when a guest lost theirs. The old one stops working.</li>
+            <li><span class="ui">Revoke</span> blocks a pass. <span class="ui">Restore</span> undoes it if there's still room.</li>
+          </ol>
+        </details>
+        <details class="task">
+          <summary>Close or wrap up the event</summary>
+          <ol>
+            <li>Open the event → <span class="ui">Edit</span> → Status.</li>
+            <li><span class="ui">Closed</span> stops new registrations, and the door can keep scanning.</li>
+            <li><span class="ui">Archived</span> hides the event and keeps all data. Use <span class="ui">Export CSV</span> first if you need a copy.</li>
+          </ol>
+        </details>
+      </div>
+    </div>
+
+    <!-- Operator -->
+    <div class="role-panel r-op" role="tabpanel" id="p-op" aria-labelledby="t-op" hidden>
+      <div class="role-intro">
+        <span class="role-badge">Per event · door</span>
+        <h3>Operator</h3>
+        <p>Works the door with a phone. Sees the events they're assigned to and nothing else.</p>
+        <ul class="cando">
+          <li>Scan passes for their events</li>
+          <li>See who was just scanned on their phone</li>
+          <li>Retry a scan when the connection drops</li>
+        </ul>
+      </div>
+      <div class="howto">
+        <details class="task" open>
+          <summary>Scan guests in</summary>
+          <ol>
+            <li>Sign in on your phone and tap <span class="ui">Scan</span>. Pick the event if you have more than one.</li>
+            <li>Allow the camera when the phone asks.</li>
+            <li>Hold the guest's QR inside the frame. The result fills the screen.</li>
+          </ol>
+        </details>
+        <details class="task" open>
+          <summary>Read the result</summary>
+          <ol>
+            <li><b style="color:var(--ok)">Green · ADMITTED</b>: let them in.</li>
+            <li><b style="color:var(--bad)">Red · ALREADY USED, INVALID, REVOKED, WRONG EVENT</b>: don't admit. Send them to an organizer.</li>
+            <li><b style="color:var(--warn)">Amber · NOT VERIFIED</b>: the connection dropped. Tap <span class="ui">Retry</span> and don't admit until it turns green.</li>
+          </ol>
+          <p class="note">A retry never counts twice. If the first attempt went through, the retry confirms it.</p>
+        </details>
+      </div>
+    </div>
+
+    <!-- Guest -->
+    <div class="role-panel r-guest" role="tabpanel" id="p-guest" aria-labelledby="t-guest" hidden>
+      <div class="role-intro">
+        <span class="role-badge">No account needed</span>
+        <h3>Guest</h3>
+        <p>Opens the link, fills a short form, and carries the pass on their phone.</p>
+        <ul class="cando">
+          <li>Register with name, and optionally email and phone</li>
+          <li>Read and accept the event's attendance terms</li>
+          <li>Keep the pass on the phone, as a screenshot, or in Google Wallet</li>
+        </ul>
+      </div>
+      <div class="howto">
+        <details class="task" open>
+          <summary>Get a pass</summary>
+          <ol>
+            <li>Open the link from the organizer.</li>
+            <li>Enter first and last name. Email and phone are optional. Phone needs the country code, like <span class="ui">+971 50 123 4567</span>.</li>
+            <li>Open and read the terms, tick <span class="ui">I have read and accept the attendance terms.</span>, then submit.</li>
+            <li>The QR pass appears. The same link opens it again later on this phone.</li>
+          </ol>
+        </details>
+        <details class="task">
+          <summary>Keep it safe</summary>
+          <ol>
+            <li>Take a screenshot. The door reads it like the live pass.</li>
+            <li>On Android, tap <span class="ui">Add to Google Wallet</span>.</li>
+            <li>Don't share it: the first person to scan it gets in.</li>
+          </ol>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- SIMULATOR -->
+  <section aria-labelledby="sim-h">
+    <div class="sec-head">
+      <span class="eyebrow">Try the door</span>
+      <h2 id="sim-h">What the scanner shows</h2>
+      <p class="lead">Tap a situation to see the operator's screen. This is a demo. It doesn't touch real events.</p>
+    </div>
+    <div class="sim">
+      <div class="sim-controls">
+        <button class="sim-btn" data-case="valid">Scan Ana's pass <small id="anaState">not yet used</small></button>
+        <button class="sim-btn" data-case="revoked">Scan a pass the organizer revoked <small>revoked</small></button>
+        <button class="sim-btn" data-case="wrong">Scan a pass for another event <small>other event</small></button>
+        <button class="sim-btn" data-case="fake">Scan a random QR code <small>not a pass</small></button>
+        <button class="sim-btn" data-case="offline">Scan while the Wi-Fi drops <small>no reply</small></button>
+        <p class="sim-state" id="simState" aria-live="polite">Ana's pass: <b>unused</b>. Scan it twice to see single entry at work.</p>
+      </div>
+      <div class="scanner" aria-label="Operator scanner screen">
+        <div class="screen">
+          <div class="viewfinder">
+            <div class="door-label">SCANNING · AUTUMN GALA</div>
+            <div class="frame" style="width:150px;height:150px"><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="idle-hint">Hold the QR inside the frame</div>
+          <div class="result" id="simResult" role="status" aria-live="assertive"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MATRIX -->
+  <section aria-labelledby="matrix-h">
+    <div class="sec-head">
+      <span class="eyebrow">Permissions</span>
+      <h2 id="matrix-h">Who can do what</h2>
+    </div>
+    <div class="matrix-wrap">
+      <table>
+        <thead><tr><th>Action</th><th class="c">Admin</th><th class="c">Organizer</th><th class="c">Operator</th><th class="c">Guest</th></tr></thead>
+        <tbody>
+          <tr><td>Create events</td><td class="c"><span class="yes">✓</span></td><td class="c"><span class="no">–</span></td><td class="c"><span class="no">–</span></td><td class="c"><span class="no">–</span></td></tr>
+          <tr><td>Edit event, terms and status</td><td class="c"><span class="yes">✓</span></td><td class="c"><span class="some">●</span></td><td class="c"><span class="no">–</span></td><td class="c"><span class="no">–</span></td></tr>
+          <tr><td>See guest list, export CSV</td><td class="c"><span class="yes">✓</span></td><td class="c"><span class="some">●</span></td><td class="c"><span class="no">–</span></td><td class="c"><span class="no">–</span></td></tr>
+          <tr><td>Revoke, restore, reissue passes</td><td class="c"><span class="yes">✓</span></td><td class="c"><span class="some">●</span></td><td class="c"><span class="no">–</span></td><td class="c"><span class="no">–</span></td></tr>
+          <tr><td>Assign operators to an event</td><td class="c"><span class="yes">✓</span></td><td class="c"><span class="some">●</span></td><td class="c"><span class="no">–</span></td><td class="c"><span class="no">–</span></td></tr>
+          <tr><td>Assign organizers</td><td class="c"><span class="yes">✓</span></td><td class="c"><span class="no">–</span></td><td class="c"><span class="no">–</span></td><td class="c"><span class="no">–</span></td></tr>
+          <tr><td>Scan passes at the door</td><td class="c"><span class="yes">✓</span></td><td class="c"><span class="some">●</span></td><td class="c"><span class="some">●</span></td><td class="c"><span class="no">–</span></td></tr>
+          <tr><td>Invite and remove staff, manage admins</td><td class="c"><span class="yes">✓</span></td><td class="c"><span class="no">–</span></td><td class="c"><span class="no">–</span></td><td class="c"><span class="no">–</span></td></tr>
+          <tr><td>Register and hold a pass</td><td class="c"><span class="no">–</span></td><td class="c"><span class="no">–</span></td><td class="c"><span class="no">–</span></td><td class="c"><span class="yes">✓</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="legend"><span><span class="yes">✓</span> every event</span><span><span class="some">●</span> only events they're assigned to</span><span><span class="no">–</span> not allowed</span></div>
+  </section>
+
+  <!-- NOTES -->
+  <section aria-labelledby="notes-h">
+    <div class="sec-head">
+      <span class="eyebrow">Good to know</span>
+      <h2 id="notes-h">The small print</h2>
+    </div>
+    <div class="notes">
+      <div class="note-card"><h3>Attendance terms</h3><p>Every new event starts with a UAE-oriented template covering non-political gatherings, open invitation, conduct, photos and personal data. Guests must tick it before a pass is issued, and the exact text they accepted is recorded. Have a lawyer review it before real events.</p></div>
+      <div class="note-card"><h3>Phone numbers</h3><p>Optional for guests, always with the country code: <span class="k">+971 50 123 4567</span> is saved as <span class="k">+971501234567</span>. Numbers without <span class="k">+</span> are refused.</p></div>
+      <div class="note-card"><h3>Capacity &amp; windows</h3><p>When an event is full or registration is closed, the form says so and no pass is issued. Revoking a pass frees its place.</p></div>
+      <div class="note-card"><h3>Lost pass</h3><p>An organizer presses <span class="k">Reissue</span> in Attendees and sends the new link. The old QR stops working at once.</p></div>
+      <div class="note-card"><h3>Google Wallet</h3><p>Android guests can save the pass to Google Wallet with the same QR. It's in test mode until Google approves publishing, so only listed test accounts can save for now.</p></div>
+      <div class="note-card"><h3>Security</h3><p>Passes are long random codes, and the system stores only a fingerprint of each one. Every scan is checked on the server, so screenshots can't be reused and a copied QR still works only once.</p></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span>PassSystem · <a href="https://passsystem-phi.vercel.app" target="_blank" rel="noopener">passsystem-phi.vercel.app</a></span>
+    <span>Guide for administrators, organizers and door staff</span>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Decorative QR-like pattern (not a real code).
+  const qr = document.getElementById('heroQr');
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const finder = (x, y) => `<rect x="${x}" y="${y}" width="7" height="7" rx="1"/><rect x="${x+1}" y="${y+1}" width="5" height="5" rx=".6" style="fill:var(--surface)"/><rect x="${x+2}" y="${y+2}" width="3" height="3" rx=".4"/>`;
+  let cells = finder(0,0) + finder(14,0) + finder(0,14);
+  for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++) {
+    const inFinder = (x < 8 && y < 8) || (x > 12 && y < 8) || (x < 8 && y > 12);
+    if (!inFinder && rnd() > .52) cells += `<rect x="${x}" y="${y}" width="1" height="1"/>`;
+  }
+  qr.innerHTML = cells;
+
+  // Hero loop: show, scan (admitted), rescan (already used).
+  const guest = document.getElementById('guestPhone');
+  const vOk = document.getElementById('vOk');
+  const vBad = document.getElementById('vBad');
+  const caption = document.getElementById('caption');
+  const beats = [
+    [1600, () => { guest.classList.remove('lift'); vOk.classList.remove('show'); vBad.classList.remove('show'); caption.textContent = 'Ana shows her pass at the door'; }],
+    [1300, () => { guest.classList.add('lift'); caption.textContent = 'The operator scans it'; }],
+    [2200, () => { vOk.classList.add('show'); caption.textContent = 'First scan: admitted'; }],
+    [1200, () => { vOk.classList.remove('show'); guest.classList.remove('lift'); caption.textContent = 'Someone tries the same pass again'; }],
+    [1300, () => { guest.classList.add('lift'); }],
+    [2600, () => { vBad.classList.add('show'); caption.textContent = 'Every scan after that is refused'; }],
+  ];
+  if (reduce) { vOk.classList.add('show'); caption.textContent = 'First scan admitted, every scan after that refused'; }
+  else {
+    let i = 0;
+    const tick = () => { const [ms, fn] = beats[i]; fn(); i = (i + 1) % beats.length; setTimeout(tick, ms); };
+    tick();
+  }
+
+  // Role tabs.
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  const select = (tab) => {
+    tabs.forEach(t => {
+      const on = t === tab;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+      const panel = document.getElementById(t.getAttribute('aria-controls'));
+      panel.hidden = !on;
+      if (on) { panel.classList.remove('enter'); void panel.offsetWidth; panel.classList.add('enter'); }
+    });
+    try { localStorage.setItem('ps-guide-role', tab.id); } catch {}
+  };
+  tabs.forEach((t, idx) => {
+    t.addEventListener('click', () => select(t));
+    t.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const next = tabs[(idx + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      next.focus(); select(next);
+    });
+  });
+  try { const saved = document.getElementById(localStorage.getItem('ps-guide-role') || ''); if (saved) select(saved); } catch {}
+
+  // Door simulator.
+  const result = document.getElementById('simResult');
+  const state = document.getElementById('simState');
+  const anaState = document.getElementById('anaState');
+  let anaUsedAt = null;
+  const now = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const show = (tone, title, text, action) => {
+    result.className = 'result';
+    void result.offsetWidth;
+    result.className = `result ${tone} show`;
+    result.innerHTML = `<b>${title}</b><p>${text}</p><span class="do">${action}</span>`;
+  };
+  document.querySelectorAll('.sim-btn').forEach(btn => btn.addEventListener('click', () => {
+    switch (btn.dataset.case) {
+      case 'valid':
+        if (!anaUsedAt) {
+          anaUsedAt = now();
+          show('ok', 'ADMITTED', 'Ana Petrović', 'Let them in');
+          anaState.textContent = `used ${anaUsedAt}`;
+          state.innerHTML = `Ana's pass: <b>used at ${anaUsedAt}</b>. Scan it again.`;
+        } else {
+          show('bad', 'ALREADY USED', `Ana Petrović · checked in at ${anaUsedAt}`, "Don't admit");
+          state.innerHTML = `Ana's pass: <b>used at ${anaUsedAt}</b>. <a href="#" id="resetAna">Reset the demo</a>`;
+          document.getElementById('resetAna').addEventListener('click', (e) => {
+            e.preventDefault(); anaUsedAt = null; anaState.textContent = 'not yet used';
+            result.className = 'result';
+            state.innerHTML = "Ana's pass: <b>unused</b>. Scan it twice to see single entry at work.";
+          });
+        }
+        break;
+      case 'revoked': show('bad', 'REVOKED', 'An organizer blocked this pass.', 'Send to an organizer'); break;
+      case 'wrong': show('bad', 'WRONG EVENT', 'This pass is for a different event.', "Don't admit"); break;
+      case 'fake': show('bad', 'NOT A VALID PASS', 'This QR code is not a PassSystem pass.', "Don't admit"); break;
+      case 'offline': show('warn', 'NOT VERIFIED', 'No answer from the server. Check the connection.', 'Tap Retry · wait for green'); break;
+    }
+  }));
+})();
+</script>
