@@ -129,7 +129,9 @@ function Scanner({ eventId }: { eventId: string }) {
         outcome.kind === 'response' && outcome.response.attendee
           ? `${outcome.response.attendee.first_name} ${outcome.response.attendee.last_name}`
           : outcome.kind === 'response'
-            ? 'Unknown pass'
+            ? outcome.response.result === 'wrong_event'
+              ? 'Pass for another event'
+              : 'Unknown pass'
             : 'Not verified'
       const label =
         outcome.kind === 'response'

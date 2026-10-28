@@ -99,20 +99,22 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
             setPage(0)
           }}
         />
-        <Select
-          aria-label="Filter by status"
-          className="w-auto"
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as RegistrationStatus | 'all')
-            setPage(0)
-          }}
-        >
-          <option value="all">All statuses</option>
-          <option value="registered">Not checked in</option>
-          <option value="checked_in">Checked in</option>
-          <option value="revoked">Revoked</option>
-        </Select>
+        {/* Wrapper sets the width: the shared control class is w-full. */}
+        <div className="w-48 shrink-0">
+          <Select
+            aria-label="Filter by status"
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value as RegistrationStatus | 'all')
+              setPage(0)
+            }}
+          >
+            <option value="all">All statuses</option>
+            <option value="registered">Not checked in</option>
+            <option value="checked_in">Checked in</option>
+            <option value="revoked">Revoked</option>
+          </Select>
+        </div>
         <div className="flex-1" />
         <Button variant="secondary" onClick={exportCsv} loading={exporting}>
           Export CSV

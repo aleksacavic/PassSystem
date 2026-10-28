@@ -40,16 +40,18 @@ export default function EventsPage() {
         description="Registrations and admissions update automatically."
         actions={
           <>
-            <Select
-              aria-label="Filter events"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as typeof filter)}
-              className="min-h-11 w-auto py-2"
-            >
-              <option value="active">Active</option>
-              <option value="archived">Archived</option>
-              <option value="all">All</option>
-            </Select>
+            <div className="w-36">
+              <Select
+                aria-label="Filter events"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value as typeof filter)}
+                className="min-h-11 py-2"
+              >
+                <option value="active">Active</option>
+                <option value="archived">Archived</option>
+                <option value="all">All</option>
+              </Select>
+            </div>
             {isAdmin && <ButtonLink to="/admin/events/new">Create event</ButtonLink>}
           </>
         }
