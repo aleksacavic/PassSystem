@@ -331,6 +331,17 @@ test('administrator invites staff from the Staff page; invitee sets a password f
   await invitee.getByRole('button', { name: 'Save password' }).click()
   await expect(invitee).toHaveURL(/\/admin$/)
   await expect(invitee.getByText(/not assigned to any events/)).toBeVisible()
+
+  // The administrator removes the account again from the Staff page.
+  await page.reload()
+  const row = page.getByRole('listitem').filter({ hasText: email })
+  page.once('dialog', (d) => d.accept())
+  await row.getByRole('button', { name: 'Remove', exact: true }).click()
+  await expect(page.getByText(`${email} was removed.`)).toBeVisible()
+  await expect(page.getByText(email, { exact: true })).toHaveCount(0)
+  // A browser that is still signed in keeps its access token until it expires, but sees nothing.
+  await invitee.reload()
+  await expect(invitee.getByText(/not assigned to any events/)).toBeVisible()
   await ctx.close()
 })
 

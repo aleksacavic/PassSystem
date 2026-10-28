@@ -423,6 +423,9 @@ enabled = true
 [functions.invite-staff]
 verify_jwt = true
 
+[functions.remove-staff]
+verify_jwt = true
+
 # Public: attendees are not signed in. The function itself requires the pass token.
 [functions.google-wallet]
 verify_jwt = false

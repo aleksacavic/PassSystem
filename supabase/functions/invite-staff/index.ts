@@ -13,6 +13,8 @@
 //
 // No third-party imports: the function talks to Supabase Auth and PostgREST
 // over HTTP, so it has nothing to download when it boots.
+import { getCaller, isAdmin, serviceHeaders, type Supa } from '../_shared/adminAuth.ts'
+
 const EMAIL_RE =
   /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/
 
@@ -30,34 +32,6 @@ function reply(status: number, body: Record<string, unknown>) {
 }
 
 const fail = (status: number, error: string, message: string) => reply(status, { ok: false, error, message })
-
-interface Supa {
-  url: string
-  serviceKey: string
-}
-
-function serviceHeaders(s: Supa): Record<string, string> {
-  return { apikey: s.serviceKey, Authorization: `Bearer ${s.serviceKey}`, 'Content-Type': 'application/json' }
-}
-
-/** The signed-in caller, from their access token (null if invalid). */
-async function getCaller(s: Supa, jwt: string): Promise<{ id: string } | null> {
-  const res = await fetch(`${s.url}/auth/v1/user`, {
-    headers: { apikey: s.serviceKey, Authorization: `Bearer ${jwt}` },
-  })
-  if (!res.ok) return null
-  const user = (await res.json()) as { id?: string }
-  return user.id ? { id: user.id } : null
-}
-
-async function isAdmin(s: Supa, userId: string): Promise<boolean> {
-  const res = await fetch(`${s.url}/rest/v1/profiles?select=is_admin&id=eq.${encodeURIComponent(userId)}`, {
-    headers: serviceHeaders(s),
-  })
-  if (!res.ok) return false
-  const rows = (await res.json()) as { is_admin?: boolean }[]
-  return rows[0]?.is_admin === true
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })

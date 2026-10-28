@@ -6,6 +6,7 @@ import {
   inviteStaff,
   publicSignupEnabled,
   listProfiles,
+  removeStaffAccount,
   setUserAdmin,
   type ClientIpDiagnosis,
 } from '../../lib/api'
@@ -25,6 +26,8 @@ export default function UsersPage() {
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [inviteDone, setInviteDone] = useState<string | null>(null)
+  const [removed, setRemoved] = useState<string | null>(null)
+  const [removing, setRemoving] = useState<string | null>(null)
   const [signupOpen, setSignupOpen] = useState<boolean | null>(null)
   const [spoof, setSpoof] = useState<{ spoofable: boolean } | 'running' | 'failed' | null>(null)
 
@@ -85,11 +88,33 @@ export default function UsersPage() {
     }
   }
 
+  async function remove(u: Profile) {
+    const what = u.confirmed_at ? 'Remove' : 'Cancel the invite for'
+    if (
+      !window.confirm(
+        `${what} ${u.email}? They lose access to every event and can no longer sign in. Past check-ins stay in the records.`,
+      )
+    )
+      return
+    setError(null)
+    setRemoved(null)
+    setRemoving(u.id)
+    try {
+      await removeStaffAccount(u.id)
+      setRemoved(`${u.email} was removed.`)
+      load()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setRemoving(null)
+    }
+  }
+
   return (
     <div className="max-w-3xl">
       <PageHeader
         title="Staff accounts"
-        description="Everyone who can sign in. Assign people to events from each event’s Staff tab."
+        description="Everyone who can sign in. Assign people to events from each event’s Staff tab. Removing an account takes away access to every event."
       />
       {signupOpen && (
         <Alert tone="bad" title="Public sign-up is switched on" className="mb-5">
@@ -145,6 +170,11 @@ export default function UsersPage() {
           {error}
         </Alert>
       )}
+      {removed && (
+        <Alert tone="ok" className="mb-4">
+          {removed}
+        </Alert>
+      )}
       <Card>
         {!users ? (
           <div className="flex justify-center p-8">
@@ -164,6 +194,11 @@ export default function UsersPage() {
                   {u.id !== session?.user.id && (u.confirmed_at || u.is_admin) && (
                     <Button variant="ghost" size="sm" onClick={() => toggle(u)}>
                       {u.is_admin ? 'Remove admin' : 'Make admin'}
+                    </Button>
+                  )}
+                  {u.id !== session?.user.id && !u.is_admin && (
+                    <Button variant="danger" size="sm" loading={removing === u.id} onClick={() => remove(u)}>
+                      {u.confirmed_at ? 'Remove' : 'Cancel invite'}
                     </Button>
                   )}
                 </div>

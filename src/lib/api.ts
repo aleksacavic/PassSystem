@@ -326,6 +326,15 @@ export async function inviteStaff(email: string, admin: boolean): Promise<Invite
   )
 }
 
+/** Administrators: delete a (non-administrator) staff account, including pending invites. */
+export async function removeStaffAccount(userId: string): Promise<{ email: string }> {
+  return invokeFunction<{ email: string }>(
+    'remove-staff',
+    { userId },
+    'Removing staff from PassSystem is not available yet (the service is not deployed). Delete the person in the Supabase dashboard: Authentication → Users.',
+  )
+}
+
 /** "Save to Google Wallet" URL for a pass, signed server-side by the google-wallet Edge Function. */
 export async function googleWalletSaveUrl(token: string): Promise<string> {
   const res = await invokeFunction<{ url: string }>(
