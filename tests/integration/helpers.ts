@@ -86,6 +86,7 @@ export async function register(
     p_last_name: last,
     p_email: email,
     p_request_id: requestId,
+    p_accept_terms: true,
   })
   if (error) throw error
   return data as {

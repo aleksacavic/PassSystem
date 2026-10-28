@@ -37,10 +37,23 @@ export function validateEmail(value: string): string | null {
   return null
 }
 
+/** "+971 50 123 4567" -> "+971501234567" (mirrors private.clean_phone). */
+export function cleanPhone(value: string): string {
+  return value.trim().replace(/[\s().-]/g, '')
+}
+
+export function validatePhone(value: string): string | null {
+  if (!value.trim()) return null
+  if (value.length > 40 || !/^\+[1-9][0-9]{7,14}$/.test(cleanPhone(value)))
+    return 'Enter the number with country code, e.g. +971 50 123 4567, or leave it empty.'
+  return null
+}
+
 export interface RegistrationInput {
   firstName: string
   lastName: string
   email: string
+  phone?: string
 }
 
 export type RegistrationErrors = Partial<Record<keyof RegistrationInput, string>>
@@ -50,8 +63,10 @@ export function validateRegistration(input: RegistrationInput): RegistrationErro
   const first = validateName(input.firstName, 'First name')
   const last = validateName(input.lastName, 'Last name')
   const email = validateEmail(input.email)
+  const phone = validatePhone(input.phone ?? '')
   if (first) errors.firstName = first
   if (last) errors.lastName = last
   if (email) errors.email = email
+  if (phone) errors.phone = phone
   return errors
 }

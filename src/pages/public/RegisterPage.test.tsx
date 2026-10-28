@@ -33,6 +33,12 @@ function renderPage() {
   )
 }
 
+const withTerms = {
+  ...event,
+  terms_required: true,
+  terms_text: 'Attendance terms\n\n1. Private social event.',
+}
+
 describe('RegisterPage', () => {
   beforeEach(() => {
     vi.mocked(api.getPublicEvent).mockResolvedValue({ event, registrationState: 'open' })
@@ -99,5 +105,62 @@ describe('RegisterPage', () => {
     renderPage()
     expect(await screen.findByText('Registration is closed')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Register' })).toBeNull()
+  })
+
+  it('requires ticking the attendance terms when the event has them', async () => {
+    vi.mocked(api.getPublicEvent).mockResolvedValue({ event: withTerms, registrationState: 'open' })
+    vi.mocked(api.registerForEvent).mockClear()
+    vi.mocked(api.registerForEvent).mockResolvedValue({
+      token: '87J813AZE9GZXK95NP3GA5F4',
+      replayed: false,
+      registration: {
+        first_name: 'Ana',
+        last_name: 'Test',
+        status: 'registered',
+        registered_at: '2026-10-28T10:00:00Z',
+      },
+      event: withTerms,
+    })
+    renderPage()
+    fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Test' } })
+    expect(screen.getByTestId('terms')).toHaveTextContent('Private social event')
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    expect(await screen.findByText('Please read and accept the attendance terms.')).toBeInTheDocument()
+    expect(api.registerForEvent).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByLabelText('I have read and accept the attendance terms.'))
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    await screen.findByText('pass page')
+    expect(vi.mocked(api.registerForEvent).mock.calls[0]![0]).toMatchObject({ acceptTerms: true })
+  })
+
+  it('validates and normalizes the optional phone number', async () => {
+    vi.mocked(api.getPublicEvent).mockResolvedValue({ event, registrationState: 'open' })
+    vi.mocked(api.registerForEvent).mockClear()
+    vi.mocked(api.registerForEvent).mockResolvedValue({
+      token: '87J813AZE9GZXK95NP3GA5F4',
+      replayed: false,
+      registration: {
+        first_name: 'Ana',
+        last_name: 'Test',
+        status: 'registered',
+        registered_at: '2026-10-28T10:00:00Z',
+      },
+      event,
+    })
+    renderPage()
+    fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Test' } })
+    fireEvent.change(screen.getByLabelText(/Phone/), { target: { value: '050 123 4567' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    expect(await screen.findByText(/with country code/i, { selector: '[role=alert]' })).toBeInTheDocument()
+    expect(api.registerForEvent).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByLabelText(/Phone/), { target: { value: '+971 50 123 4567' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    await screen.findByText('pass page')
+    expect(vi.mocked(api.registerForEvent).mock.calls[0]![0]).toMatchObject({
+      phone: '+971501234567',
+      acceptTerms: false,
+    })
   })
 })

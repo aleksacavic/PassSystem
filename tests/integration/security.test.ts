@@ -285,6 +285,7 @@ describe('rate limiting', () => {
           p_slug: ev2.slug,
           p_first_name: 'Rate',
           p_last_name: `L${i}`,
+          p_accept_terms: true,
         })
         results.push(data)
       }

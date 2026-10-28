@@ -15,6 +15,9 @@ export interface PublicEvent {
   registration_opens_at: string | null
   registration_closes_at: string | null
   status: EventStatus
+  terms_required?: boolean
+  /** Null when the event does not require accepting terms. */
+  terms_text?: string | null
 }
 
 export interface EventRow {
@@ -30,6 +33,8 @@ export interface EventRow {
   registration_closes_at: string | null
   status: EventStatus
   max_attendees: number | null
+  terms_required: boolean
+  terms_text: string | null
   created_at: string
   updated_at: string
   created_by: string | null
@@ -48,6 +53,8 @@ export type EventInput = Pick<
   | 'registration_closes_at'
   | 'status'
   | 'max_attendees'
+  | 'terms_required'
+  | 'terms_text'
 >
 
 export interface EventSummary {
@@ -72,6 +79,7 @@ export interface Registration {
   first_name: string
   last_name: string
   email: string | null
+  phone: string | null
   status: RegistrationStatus
   registered_at: string
   checked_in_at: string | null
@@ -79,6 +87,7 @@ export interface Registration {
   revoked_at: string | null
   token_issued_at: string
   token_version: number
+  terms_accepted_at: string | null
 }
 
 export interface PassView {

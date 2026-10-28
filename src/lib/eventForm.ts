@@ -20,6 +20,8 @@ export interface FormState {
   closesAt: string
   maxAttendees: string
   status: EventStatus
+  termsRequired: boolean
+  termsText: string
 }
 
 export type Errors = Partial<Record<keyof FormState, string>>
@@ -37,6 +39,9 @@ export function emptyForm(): FormState {
     closesAt: '',
     maxAttendees: '',
     status: 'draft',
+    termsRequired: true,
+    // Filled from the server's default terms when the form opens.
+    termsText: '',
   }
 }
 
@@ -53,6 +58,8 @@ export function fromEvent(e: EventRow): FormState {
     closesAt: isoToZonedInput(e.registration_closes_at, e.timezone),
     maxAttendees: e.max_attendees ? String(e.max_attendees) : '',
     status: e.status,
+    termsRequired: e.terms_required,
+    termsText: e.terms_text ?? '',
   }
 }
 
@@ -85,6 +92,9 @@ export function validateEventForm(f: FormState): { errors: Errors; input?: Event
     if (!Number.isInteger(max) || max < 1 || max > 1_000_000)
       errors.maxAttendees = 'Enter a whole number from 1.'
   }
+  if (f.termsRequired && !f.termsText.trim())
+    errors.termsText = 'Enter the terms attendees must accept, or switch the requirement off.'
+  if (f.termsText.length > 10000) errors.termsText = 'At most 10,000 characters.'
   if (Object.keys(errors).length) return { errors }
   return {
     errors,
@@ -100,6 +110,8 @@ export function validateEventForm(f: FormState): { errors: Errors; input?: Event
       registration_closes_at: closesAt,
       max_attendees: max,
       status: f.status,
+      terms_required: f.termsRequired,
+      terms_text: f.termsText.trim() || null,
     },
   }
 }

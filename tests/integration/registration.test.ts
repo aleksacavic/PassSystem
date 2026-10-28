@@ -25,6 +25,8 @@ describe('public event page', () => {
         'slug',
         'starts_at',
         'status',
+        'terms_required',
+        'terms_text',
         'timezone',
       ].sort(),
     )

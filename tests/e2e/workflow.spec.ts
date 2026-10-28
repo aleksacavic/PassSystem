@@ -91,6 +91,9 @@ test('organizer → attendee → operator camera scan → event isolation → re
   await expect(att.getByRole('heading', { name: `Event A ${suffix}` })).toBeVisible()
   await att.getByLabel('First name').fill('Ana')
   await att.getByLabel('Last name').fill('Petrović')
+  await att.getByLabel(/Phone/).fill('+971 50 123 4567')
+  await expect(att.getByTestId('terms')).toContainText('not political')
+  await att.getByLabel('I have read and accept the attendance terms.').check()
   await att.getByRole('button', { name: 'Register' }).click()
   await expect(att).toHaveURL(/\/pass#[0-9A-Z]{24}$/)
   await expect(att.getByText('You are registered!')).toBeVisible()
@@ -166,6 +169,7 @@ test('organizer → attendee → operator camera scan → event isolation → re
   await att.getByLabel('First name').fill('Marko')
   await att.getByLabel('Last name').fill('Marković')
   await att.getByLabel('Email').fill('marko@example.org')
+  await att.getByLabel('I have read and accept the attendance terms.').check()
   await att.getByRole('button', { name: 'Register' }).click()
   await expect(att.getByTestId('pass-name')).toHaveText('Marko Marković')
   const codeB = (await att.getByTestId('pass-code').innerText()).trim()
@@ -191,6 +195,7 @@ test('organizer → attendee → operator camera scan → event isolation → re
   ])
   const csv = readFileSync(await download.path(), 'utf8')
   expect(csv).toContain('Ana,Petrović')
+  expect(csv).toContain('+971501234567')
   expect(csv).toContain('checked_in')
   expect(csv).not.toContain('Marko')
 
@@ -363,6 +368,7 @@ test('Add to Google Wallet: Android gets a signed save link; iPhone does not see
     p_slug: ev!.slug,
     p_first_name: 'Wanda',
     p_last_name: 'Wallet',
+    p_accept_terms: true,
   })
   const passPath = `/pass#${reg.token}`
 

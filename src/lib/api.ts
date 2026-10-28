@@ -48,6 +48,8 @@ export async function registerForEvent(input: {
   firstName: string
   lastName: string
   email: string
+  phone: string
+  acceptTerms: boolean
   requestId: string
   website: string
 }): Promise<RegistrationResult> {
@@ -58,6 +60,8 @@ export async function registerForEvent(input: {
     p_email: input.email || null,
     p_request_id: input.requestId,
     p_website: input.website || null,
+    p_phone: input.phone || null,
+    p_accept_terms: input.acceptTerms,
   })
   if (error) fail(error)
   const res = data as ({ ok: true } & RegistrationResult) | RpcFailure
@@ -91,7 +95,7 @@ export async function getEventSummaries(eventId?: string): Promise<EventSummary[
 }
 
 const EVENT_COLUMNS =
-  'id,name,slug,description,location,timezone,starts_at,ends_at,registration_opens_at,registration_closes_at,status,max_attendees,created_at,updated_at,created_by'
+  'id,name,slug,description,location,timezone,starts_at,ends_at,registration_opens_at,registration_closes_at,status,max_attendees,terms_required,terms_text,created_at,updated_at,created_by'
 
 export async function getEvent(id: string): Promise<EventRow> {
   const { data, error } = await supabase.from('events').select(EVENT_COLUMNS).eq('id', id).maybeSingle()
@@ -117,6 +121,13 @@ export async function updateEvent(id: string, input: Partial<EventInput>): Promi
   return data as EventRow
 }
 
+/** Default attendance terms (server-side template), for new events and "Reset to default". */
+export async function getDefaultEventTerms(): Promise<string> {
+  const { data, error } = await supabase.rpc('default_event_terms')
+  if (error) fail(error)
+  return data as string
+}
+
 export async function deleteEvent(id: string): Promise<void> {
   const { error } = await supabase.from('events').delete().eq('id', id)
   if (error) {
@@ -130,7 +141,7 @@ export async function deleteEvent(id: string): Promise<void> {
 }
 
 export const REGISTRATION_COLUMNS =
-  'id,event_id,first_name,last_name,email,status,registered_at,checked_in_at,checked_in_by,revoked_at,token_issued_at,token_version'
+  'id,event_id,first_name,last_name,email,phone,status,registered_at,checked_in_at,checked_in_by,revoked_at,token_issued_at,token_version,terms_accepted_at'
 
 export interface RegistrationQuery {
   eventId: string
@@ -161,7 +172,9 @@ export async function listRegistrations(
   const terms = (q.search ?? '').split(/\s+/).map(sanitizeSearchTerm).filter(Boolean).slice(0, 4)
   for (const term of terms) {
     const pattern = `"%${term}%"`
-    query = query.or(`first_name.ilike.${pattern},last_name.ilike.${pattern},email.ilike.${pattern}`)
+    query = query.or(
+      `first_name.ilike.${pattern},last_name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern}`,
+    )
   }
   const { data, error, count } = await query
   if (error) fail(error)

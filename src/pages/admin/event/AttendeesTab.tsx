@@ -60,18 +60,22 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
           'First name',
           'Last name',
           'Email',
+          'Phone',
           'Status',
           'Registered at (UTC)',
           'Checked in at (UTC)',
+          'Terms accepted at (UTC)',
           'Registration ID',
         ],
         rows.map((r) => [
           r.first_name,
           r.last_name,
           r.email ?? '',
+          r.phone ?? '',
           r.status,
           r.registered_at,
           r.checked_in_at ?? '',
+          r.terms_accepted_at ?? '',
           r.id,
         ]),
       )
@@ -90,7 +94,7 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
       <div className="flex flex-wrap items-center gap-2">
         <Input
           type="search"
-          placeholder="Search name or email"
+          placeholder="Search name, email or phone"
           aria-label="Search attendees"
           className="max-w-xs flex-1"
           value={search}
@@ -137,7 +141,7 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
               <thead className="bg-ink-50 text-xs font-semibold tracking-wide text-ink-500 uppercase">
                 <tr>
                   <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Contact</th>
                   <th className="px-4 py-3">Registered</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Checked in</th>
@@ -150,7 +154,10 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
                     <td className="px-4 py-3 font-semibold">
                       {r.first_name} {r.last_name}
                     </td>
-                    <td className="max-w-56 truncate px-4 py-3 text-ink-600">{r.email ?? '—'}</td>
+                    <td className="max-w-56 px-4 py-3 text-ink-600">
+                      <div className="truncate">{r.email ?? (r.phone ? '' : '—')}</div>
+                      {r.phone && <div className="truncate tabular-nums">{r.phone}</div>}
+                    </td>
                     <td className="px-4 py-3 whitespace-nowrap text-ink-600">
                       {formatDateTime(r.registered_at, event.timezone)}
                     </td>
@@ -178,6 +185,7 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
                     <RegistrationStatusBadge status={r.status} />
                   </div>
                   {r.email && <p className="truncate text-sm text-ink-600">{r.email}</p>}
+                  {r.phone && <p className="truncate text-sm text-ink-600 tabular-nums">{r.phone}</p>}
                   <p className="text-xs text-ink-500">
                     Registered {formatDateTime(r.registered_at, event.timezone)}
                     {r.checked_in_at && ` · In ${formatDateTime(r.checked_in_at, event.timezone)}`}

@@ -7,6 +7,7 @@ const base = {
   slug: 'gala',
   timezone: 'Europe/Belgrade',
   startsAt: '2026-11-20T18:00',
+  termsText: 'Be kind.',
 }
 
 describe('validateEventForm', () => {
@@ -42,5 +43,16 @@ describe('daylight-saving gaps', () => {
         .startsAt,
     ).toMatch(/does not exist/)
     expect(validateEventForm({ ...base, startsAt: '2026-03-29T03:30' }).errors.startsAt).toBeUndefined()
+  })
+})
+
+describe('attendance terms', () => {
+  it('requires text when acceptance is required, and sends both fields', () => {
+    expect(validateEventForm({ ...base, termsText: '  ' }).errors.termsText).toBeTruthy()
+    const { input } = validateEventForm({ ...base, termsText: '  Be kind.  ' })
+    expect(input).toMatchObject({ terms_required: true, terms_text: 'Be kind.' })
+    const off = validateEventForm({ ...base, termsRequired: false, termsText: '' })
+    expect(off.errors).toEqual({})
+    expect(off.input).toMatchObject({ terms_required: false, terms_text: null })
   })
 })

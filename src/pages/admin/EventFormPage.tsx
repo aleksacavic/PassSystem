@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { createEvent, deleteEvent, getEvent, updateEvent } from '../../lib/api'
+import { createEvent, deleteEvent, getDefaultEventTerms, getEvent, updateEvent } from '../../lib/api'
 import { emptyForm, fromEvent, validateEventForm, type Errors, type FormState } from '../../lib/eventForm'
 import { slugify } from '../../lib/slug'
 import type { EventRow, EventStatus } from '../../lib/types'
@@ -31,6 +31,17 @@ export default function EventFormPage() {
   const [errors, setErrors] = useState<Errors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [defaultTerms, setDefaultTerms] = useState<string | null>(null)
+
+  // Default attendance terms: prefilled for new events, used by "Reset to default".
+  useEffect(() => {
+    getDefaultEventTerms()
+      .then((t) => {
+        setDefaultTerms(t)
+        if (!id) setForm((f) => (f.termsText ? f : { ...f, termsText: t }))
+      })
+      .catch(() => undefined)
+  }, [id])
 
   useEffect(() => {
     if (!id) return
@@ -252,6 +263,47 @@ export default function EventFormPage() {
               </Select>
             )}
           </Field>
+        </Card>
+
+        <Card className="space-y-4 p-5">
+          <div>
+            <h2 className="text-base font-semibold">Attendance terms</h2>
+            <p className="mt-1 text-sm text-ink-600">
+              Attendees must tick “I have read and accept the attendance terms” before they receive their
+              pass. The text and time of acceptance are recorded with each registration.
+            </p>
+          </div>
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              id="terms-required"
+              type="checkbox"
+              className="mt-0.5 size-5 rounded border-ink-300 accent-ink-900"
+              checked={form.termsRequired}
+              onChange={(e) => set('termsRequired', e.target.checked)}
+            />
+            <span className="font-semibold">Require attendees to accept these terms</span>
+          </label>
+          <Field
+            label="Terms text"
+            error={errors.termsText}
+            hint="Shown on the registration page. Template only: have it reviewed for your event and jurisdiction."
+          >
+            {(p) => (
+              <TextArea
+                {...p}
+                rows={12}
+                maxLength={10000}
+                className="font-normal leading-relaxed"
+                value={form.termsText}
+                onChange={(e) => set('termsText', e.target.value)}
+              />
+            )}
+          </Field>
+          {defaultTerms && form.termsText !== defaultTerms && (
+            <Button variant="secondary" size="sm" onClick={() => set('termsText', defaultTerms)}>
+              Reset to default text
+            </Button>
+          )}
         </Card>
 
         {submitError && <Alert tone="bad">{submitError}</Alert>}

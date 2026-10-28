@@ -8,6 +8,7 @@ import { randomUuid } from '../../lib/random'
 import type { PublicEvent, RegistrationState } from '../../lib/types'
 import {
   cleanName,
+  cleanPhone,
   normalizeEmail,
   validateRegistration,
   type RegistrationErrors,
@@ -26,8 +27,9 @@ export default function RegisterPage() {
   const navigate = useNavigate()
   const [load, setLoad] = useState<LoadState>({ kind: 'loading' })
   const [reloadKey, setReloadKey] = useState(0)
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', website: '' })
-  const [errors, setErrors] = useState<RegistrationErrors>({})
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', website: '' })
+  const [acceptTerms, setAcceptTerms] = useState(false)
+  const [errors, setErrors] = useState<RegistrationErrors & { terms?: string }>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [existing] = useState<StoredPass[]>(() => passesForEvent(slug))
@@ -63,7 +65,8 @@ export default function RegisterPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (inFlight.current || load.kind !== 'ready') return
-    const v = validateRegistration(form)
+    const v: RegistrationErrors & { terms?: string } = validateRegistration(form)
+    if (load.event.terms_required && !acceptTerms) v.terms = 'Please read and accept the attendance terms.'
     setErrors(v)
     setSubmitError(null)
     if (Object.keys(v).length > 0) return
@@ -76,6 +79,8 @@ export default function RegisterPage() {
         firstName: cleanName(form.firstName),
         lastName: cleanName(form.lastName),
         email: normalizeEmail(form.email),
+        phone: cleanPhone(form.phone),
+        acceptTerms: Boolean(load.event.terms_required) && acceptTerms,
         requestId: requestId.current,
         website: form.website,
       })
@@ -91,10 +96,17 @@ export default function RegisterPage() {
       navigate(`/pass#${result.token}`, { state: { justRegistered: true, result } })
     } catch (err) {
       const apiErr = err instanceof ApiError ? (err as ApiError & { field?: string }) : null
-      if (apiErr?.code === 'invalid_input' && apiErr.field && apiErr.field !== 'form') {
-        const key =
-          apiErr.field === 'first_name' ? 'firstName' : apiErr.field === 'last_name' ? 'lastName' : 'email'
-        setErrors({ [key]: 'Please check this field.' })
+      if (apiErr?.code === 'terms_not_accepted') {
+        setErrors({ terms: apiErr.message })
+        setReloadKey((k) => k + 1) // the organizer may have just switched terms on
+      } else if (apiErr?.code === 'invalid_input' && apiErr.field && apiErr.field !== 'form') {
+        const fields: Record<string, keyof RegistrationErrors> = {
+          first_name: 'firstName',
+          last_name: 'lastName',
+          email: 'email',
+          phone: 'phone',
+        }
+        setErrors({ [fields[apiErr.field] ?? 'firstName']: 'Please check this field.' })
       } else {
         setSubmitError(apiErr?.message ?? 'Network error. Check your connection and try again.')
       }
@@ -229,6 +241,61 @@ export default function RegisterPage() {
                   />
                 )}
               </Field>
+              <Field
+                label="Phone"
+                optional
+                error={errors.phone}
+                hint="With country code, e.g. +971 50 123 4567."
+              >
+                {(p) => (
+                  <Input
+                    {...p}
+                    type="tel"
+                    name="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="+971 50 123 4567"
+                    maxLength={40}
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  />
+                )}
+              </Field>
+              {event.terms_required && event.terms_text && (
+                <div className="space-y-2">
+                  <details
+                    className="rounded-xl bg-ink-50 ring-1 ring-ink-200 ring-inset"
+                    data-testid="terms"
+                  >
+                    <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+                      Read the attendance terms
+                    </summary>
+                    <div className="max-h-72 overflow-y-auto border-t border-ink-200 px-4 py-3 text-sm leading-relaxed whitespace-pre-line text-ink-700">
+                      {event.terms_text}
+                    </div>
+                  </details>
+                  <label className="flex items-start gap-3 text-[15px]">
+                    <input
+                      id="accept-terms"
+                      type="checkbox"
+                      className="mt-0.5 size-5 shrink-0 rounded border-ink-300 accent-ink-900"
+                      checked={acceptTerms}
+                      aria-invalid={errors.terms ? true : undefined}
+                      aria-describedby={errors.terms ? 'accept-terms-error' : undefined}
+                      onChange={(e) => {
+                        setAcceptTerms(e.target.checked)
+                        if (e.target.checked) setErrors((er) => ({ ...er, terms: undefined }))
+                      }}
+                    />
+                    <span>I have read and accept the attendance terms.</span>
+                  </label>
+                  {errors.terms && (
+                    <p id="accept-terms-error" className="text-sm font-medium text-bad-700" role="alert">
+                      {errors.terms}
+                    </p>
+                  )}
+                </div>
+              )}
               {/* Honeypot: hidden from people and assistive tech, bots tend to fill it. */}
               <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
                 <label>

@@ -153,6 +153,7 @@ describe('[F-02] rate-limit IP source', () => {
             p_slug: ev.slug,
             p_first_name: 'Rate',
             p_last_name: `L${i}`,
+            p_accept_terms: true,
           },
         )
         if (data.ok) ok++
