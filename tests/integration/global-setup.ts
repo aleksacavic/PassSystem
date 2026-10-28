@@ -17,6 +17,9 @@ export default async function setup() {
       ('register_per_ip_per_minute', 30), ('register_per_ip_per_hour', 400), ('register_per_event_per_minute', 600),
       ('pass_lookup_per_ip_per_minute', 120), ('public_event_per_ip_per_minute', 300), ('trust_cf_connecting_ip', 1)
     ) as d(k, v) where key = d.k`)
+    // Counters accumulated under the lifted limits would otherwise trip the
+    // restored defaults for whatever runs next (e.g. the E2E suite).
+    await db2.query(`delete from private.rate_limit_buckets`)
     await db2.end()
   }
 }

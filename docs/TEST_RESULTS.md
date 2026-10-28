@@ -92,8 +92,12 @@ Two intermittent failures were seen before that:
 1. **Fixed.** A strict-mode selector race in the test. The operator's event card also contains a "Scan" link, so
    `getByRole('link', { name: 'Scan' })` sometimes matched two elements. The test now scopes the click to the main
    navigation.
-2. **Not reproduced.** One `expect(page).toHaveURL(...)` timeout in the main workflow test. It did not recur in 35
-   subsequent runs, and the trace was not kept. It may be the same navigation timing; Codex should watch for it.
+2. **Fixed (root-caused in CI).** An `expect(page).toHaveURL(/pass#…/)` timeout in the main workflow. The failure
+   screenshot showed "Too many attempts from this network". The integration suite runs with lifted rate limits,
+   but its counters kept accumulating (63 registrations in one minute). Teardown restored the 30/min default
+   without clearing them, so an E2E run in the same clock minute was rate limited. This was reproduced
+   deterministically by running the two suites back to back. Integration teardown now clears the counters, and
+   the E2E global setup starts from empty counters. The rate limiter itself behaved correctly.
 
 ## Not yet tested
 
