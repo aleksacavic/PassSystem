@@ -30,6 +30,7 @@ export default defineConfig({
       VITE_SUPABASE_URL: stack.apiUrl,
       VITE_SUPABASE_PUBLISHABLE_KEY: stack.anonKey,
       VITE_PUBLIC_SITE_URL: `http://127.0.0.1:${PORT}`,
+      VITE_GOOGLE_WALLET: '1',
     },
   },
 })

@@ -422,3 +422,7 @@ enabled = true
 # The gateway verifies the caller's JWT; the function then checks profiles.is_admin.
 [functions.invite-staff]
 verify_jwt = true
+
+# Public: attendees are not signed in. The function itself requires the pass token.
+[functions.google-wallet]
+verify_jwt = false

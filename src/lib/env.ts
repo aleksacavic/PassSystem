@@ -8,6 +8,7 @@ export const env = {
   supabaseUrl,
   supabaseKey,
   configured: Boolean(supabaseUrl && supabaseKey),
+  googleWallet: import.meta.env.VITE_GOOGLE_WALLET === '1',
 }
 
 /** Public origin used to build shareable links. Configurable, never hardcoded. */

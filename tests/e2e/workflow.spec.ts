@@ -342,3 +342,47 @@ test('Staff page deployment check detects a forgeable cf-connecting-ip header (l
   await expect(page.getByTestId('spoof-result')).toContainText('FORGEABLE')
   await ctx.close()
 })
+
+test('Add to Google Wallet: Android gets a signed save link; iPhone does not see the button', async ({
+  browser,
+}) => {
+  const { data: ev } = await service
+    .from('events')
+    .insert({
+      name: 'Wallet E2E',
+      slug: `wallet-${randomUUID().slice(0, 6)}`,
+      starts_at: new Date(Date.now() + 864e5).toISOString(),
+      status: 'published',
+      created_by: organizer.id,
+    })
+    .select('slug')
+    .single()
+  const { data: reg } = await createClient(stack.apiUrl, stack.anonKey, {
+    auth: { persistSession: false },
+  }).rpc('register_for_event', {
+    p_slug: ev!.slug,
+    p_first_name: 'Wanda',
+    p_last_name: 'Wallet',
+  })
+  const passPath = `/pass#${reg.token}`
+
+  const android = await (await browser.newContext({ ...devices['Pixel 7'], baseURL })).newPage()
+  let saveUrl = ''
+  await android.route('https://pay.google.com/**', (route) => {
+    saveUrl = route.request().url()
+    return route.fulfill({ status: 200, contentType: 'text/html', body: '<p>Google Wallet</p>' })
+  })
+  await android.goto(passPath)
+  await android.getByTestId('google-wallet').click()
+  await android.waitForURL(/^https:\/\/pay\.google\.com\//)
+  expect(saveUrl).toMatch(/^https:\/\/pay\.google\.com\/gp\/v\/save\/[\w-]+\.[\w-]+\.[\w-]+$/)
+  const claims = JSON.parse(
+    Buffer.from(saveUrl.split('/').pop()!.split('.')[1]!, 'base64url').toString('utf8'),
+  )
+  expect(claims.payload.eventTicketObjects[0].ticketHolderName).toBe('Wanda Wallet')
+
+  const iphone = await (await browser.newContext({ ...devices['iPhone 13'], baseURL })).newPage()
+  await iphone.goto(passPath)
+  await expect(iphone.getByTestId('pass-name')).toHaveText('Wanda Wallet')
+  await expect(iphone.getByTestId('google-wallet')).toHaveCount(0)
+})

@@ -9,6 +9,7 @@ import { forgetPass, loadPasses } from '../../lib/passStorage'
 import type { PassView, PublicEvent } from '../../lib/types'
 import { CopyButton } from '../../components/CopyButton'
 import { EventInfo } from '../../components/EventInfo'
+import { GoogleWalletButton } from '../../components/GoogleWalletButton'
 import { PublicLayout } from '../../components/PublicLayout'
 import { QrImage } from '../../components/QrImage'
 import { useQrDataUrl } from '../../components/useQrDataUrl'
@@ -216,6 +217,11 @@ function PassPage() {
           </div>
         </Card>
 
+        {usable && token && (
+          <div className="no-print">
+            <GoogleWalletButton token={token} />
+          </div>
+        )}
         {usable && (
           <div className="no-print grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Button size="lg" onClick={onSave} loading={saving} disabled={!qr}>

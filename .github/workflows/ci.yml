@@ -41,7 +41,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Start local Supabase (db, auth, rest, gateway)
+      - name: Test-only Google Wallet key for the edge function
+        run: node scripts/gen-test-wallet-env.mjs
+      - name: Start local Supabase (db, auth, rest, gateway, edge runtime, mail)
         run: npm run db:start
       - run: npm run test:integration
       - run: npx playwright install --with-deps chromium

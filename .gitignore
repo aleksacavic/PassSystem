@@ -17,3 +17,5 @@ supabase/.branches
 .netlify
 .DS_Store
 *.log
+tests/.artifacts
+supabase/functions/.env
