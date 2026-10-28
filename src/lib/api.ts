@@ -50,6 +50,8 @@ export async function registerForEvent(input: {
   email: string
   phone: string
   acceptTerms: boolean
+  /** terms_version of the terms text shown to the attendee. */
+  termsVersion?: string | null
   requestId: string
   website: string
 }): Promise<RegistrationResult> {
@@ -62,6 +64,7 @@ export async function registerForEvent(input: {
     p_website: input.website || null,
     p_phone: input.phone || null,
     p_accept_terms: input.acceptTerms,
+    p_terms_version: input.termsVersion ?? null,
   })
   if (error) fail(error)
   const res = data as ({ ok: true } & RegistrationResult) | RpcFailure

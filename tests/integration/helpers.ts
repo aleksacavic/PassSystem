@@ -73,6 +73,16 @@ export async function createEvent(
   return data as TestEvent
 }
 
+/** The terms_version the public page shows for an event (what the browser sends back). */
+export async function termsVersion(slug: string): Promise<string | null> {
+  const rows = await db<{ v: string | null }>(
+    `select case when terms_required then encode(extensions.digest(convert_to(terms_text, 'UTF8'), 'sha256'), 'hex') end as v
+     from public.events where slug = $1`,
+    [slug],
+  )
+  return rows[0]?.v ?? null
+}
+
 export async function register(
   slug: string,
   first = 'Ana',
@@ -87,6 +97,7 @@ export async function register(
     p_email: email,
     p_request_id: requestId,
     p_accept_terms: true,
+    p_terms_version: await termsVersion(slug),
   })
   if (error) throw error
   return data as {

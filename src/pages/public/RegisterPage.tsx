@@ -81,6 +81,7 @@ export default function RegisterPage() {
         email: normalizeEmail(form.email),
         phone: cleanPhone(form.phone),
         acceptTerms: Boolean(load.event.terms_required) && acceptTerms,
+        termsVersion: load.event.terms_required ? (load.event.terms_version ?? null) : null,
         requestId: requestId.current,
         website: form.website,
       })
@@ -96,9 +97,12 @@ export default function RegisterPage() {
       navigate(`/pass#${result.token}`, { state: { justRegistered: true, result } })
     } catch (err) {
       const apiErr = err instanceof ApiError ? (err as ApiError & { field?: string }) : null
-      if (apiErr?.code === 'terms_not_accepted') {
+      if (apiErr?.code === 'terms_not_accepted' || apiErr?.code === 'terms_changed') {
+        // The organizer may have just switched terms on or edited them: show the
+        // current text and ask for a fresh acceptance.
+        setAcceptTerms(false)
         setErrors({ terms: apiErr.message })
-        setReloadKey((k) => k + 1) // the organizer may have just switched terms on
+        setReloadKey((k) => k + 1)
       } else if (apiErr?.code === 'invalid_input' && apiErr.field && apiErr.field !== 'form') {
         const fields: Record<string, keyof RegistrationErrors> = {
           first_name: 'firstName',

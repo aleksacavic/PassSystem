@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import RegisterPage from './RegisterPage'
 import * as api from '../../lib/api'
+import { ApiError } from '../../lib/errors'
 
 vi.mock('../../lib/api', () => ({
   getPublicEvent: vi.fn(),
@@ -132,6 +133,29 @@ describe('RegisterPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Register' }))
     await screen.findByText('pass page')
     expect(vi.mocked(api.registerForEvent).mock.calls[0]![0]).toMatchObject({ acceptTerms: true })
+  })
+
+  it('sends the version of the terms shown, and asks again when the organizer changed them', async () => {
+    const v1 = { ...withTerms, terms_version: 'aaa' }
+    const v2 = { ...withTerms, terms_text: 'Attendance terms\n\n1. Updated rule.', terms_version: 'bbb' }
+    vi.mocked(api.getPublicEvent)
+      .mockResolvedValueOnce({ event: v1, registrationState: 'open' })
+      .mockResolvedValue({ event: v2, registrationState: 'open' })
+    vi.mocked(api.registerForEvent).mockClear()
+    vi.mocked(api.registerForEvent).mockRejectedValueOnce(
+      Object.assign(new ApiError('The organizer has just updated the attendance terms.', 'terms_changed'), {
+        field: 'terms',
+      }),
+    )
+    renderPage()
+    fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Test' } })
+    fireEvent.click(screen.getByLabelText('I have read and accept the attendance terms.'))
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    expect(await screen.findByText(/just updated the attendance terms/)).toBeInTheDocument()
+    expect(vi.mocked(api.registerForEvent).mock.calls[0]![0]).toMatchObject({ termsVersion: 'aaa' })
+    await waitFor(() => expect(screen.getByTestId('terms')).toHaveTextContent('Updated rule'))
+    expect(screen.getByLabelText('I have read and accept the attendance terms.')).not.toBeChecked()
   })
 
   it('validates and normalizes the optional phone number', async () => {

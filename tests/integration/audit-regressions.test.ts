@@ -15,6 +15,7 @@ import {
   register,
   service,
   type StaffUser,
+  termsVersion,
 } from './helpers'
 
 let admin: StaffUser
@@ -123,7 +124,7 @@ describe('[F-01] scan retries after a client timeout', () => {
         })
       ).data.result,
     ).toBe('already_used')
-    // Same attempt id for another event is not a replay either.
+    // Reusing the attempt id for another event is refused outright (R2-02).
     expect(
       (
         await admin.client.rpc('admit_pass', {
@@ -131,8 +132,8 @@ describe('[F-01] scan retries after a client timeout', () => {
           p_token: r.token,
           p_attempt_id: attempt,
         })
-      ).data.result,
-    ).toBe('wrong_event')
+      ).error?.hint,
+    ).toBe('attempt_conflict')
   })
 })
 
@@ -154,6 +155,7 @@ describe('[F-02] rate-limit IP source', () => {
             p_first_name: 'Rate',
             p_last_name: `L${i}`,
             p_accept_terms: true,
+            p_terms_version: await termsVersion(ev.slug),
           },
         )
         if (data.ok) ok++
@@ -312,11 +314,8 @@ describe('[F-08] only confirmed accounts become staff', () => {
 
   it('a pending administrator invite is granted only when the invite is accepted', async () => {
     const email = `aud-pending-${randomUUID().slice(0, 8)}@passsystem.test`
-    const { data } = await service.auth.admin.createUser({
-      email,
-      email_confirm: false,
-      app_metadata: { pending_admin: true },
-    })
+    const { data } = await service.auth.admin.createUser({ email, email_confirm: false })
+    expect((await service.rpc('mark_pending_admin', { p_user_id: data.user!.id })).error).toBeNull()
     expect((await db(`select is_admin from profiles where id = $1`, [data.user!.id]))[0]!.is_admin).toBe(
       false,
     )

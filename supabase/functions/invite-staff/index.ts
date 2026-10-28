@@ -141,13 +141,12 @@ Deno.serve(async (req) => {
     : undefined
 
   if (makeAdmin) {
-    // Granted by a database trigger only once the invite is accepted (email
+    // Granted once, by a database trigger, when the invite is accepted (email
     // confirmed), so a mistyped address never becomes an administrator.
-    // app_metadata can only be written with the service role.
-    const flagRes = await fetch(`${url}/auth/v1/admin/users/${invitedId}`, {
-      method: 'PUT',
+    const flagRes = await fetch(`${url}/rest/v1/rpc/mark_pending_admin`, {
+      method: 'POST',
       headers: serviceHeaders(supa),
-      body: JSON.stringify({ app_metadata: { pending_admin: true } }),
+      body: JSON.stringify({ p_user_id: invitedId, p_invited_by: caller.id }),
     })
     if (!flagRes.ok) {
       console.error('pending admin flag failed', flagRes.status)
@@ -158,7 +157,7 @@ Deno.serve(async (req) => {
         admin: false,
         link,
         warning:
-          'Invite sent, but administrator rights could not be prepared. Use "Make admin" after they accept.',
+          'Invite created, but administrator rights could not be prepared. Use "Make admin" after they accept.',
       })
     }
   }

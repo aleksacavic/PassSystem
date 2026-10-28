@@ -18,6 +18,8 @@ export interface PublicEvent {
   terms_required?: boolean
   /** Null when the event does not require accepting terms. */
   terms_text?: string | null
+  /** Digest of terms_text; sent back with the acceptance. */
+  terms_version?: string | null
 }
 
 export interface EventRow {

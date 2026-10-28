@@ -7,8 +7,8 @@
 // empty. Works for pending invites too (cancels the invite). Their sessions
 // can no longer be refreshed; a browser that is still open keeps its access
 // token until it expires (at most an hour) but no longer sees any event.
-// Administrators must have their rights removed first, and nobody can remove
-// their own account.
+// Administrators must have their rights removed first (also enforced by a
+// database trigger inside the deletion), and nobody can remove their own account.
 //
 // Request:  POST { "userId": string }
 // Response: 200 { ok: true, user_id, email }
@@ -73,6 +73,11 @@ Deno.serve(async (req) => {
   })
   if (res.status === 404) return fail(404, 'user_not_found', 'This account no longer exists.')
   if (!res.ok) {
+    // The database refuses to delete administrators (they may have been
+    // promoted since the check above).
+    if ((await getProfile(supa, userId))?.is_admin) {
+      return fail(409, 'remove_admin_first', 'Remove administrator rights first, then remove the account.')
+    }
     console.error('delete user failed', res.status)
     return fail(502, 'remove_failed', 'The account could not be removed. Try again later.')
   }

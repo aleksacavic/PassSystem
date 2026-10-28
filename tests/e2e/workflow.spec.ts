@@ -408,13 +408,14 @@ test('Add to Google Wallet: Android gets a signed save link; iPhone does not see
     })
     .select('slug')
     .single()
-  const { data: reg } = await createClient(stack.apiUrl, stack.anonKey, {
-    auth: { persistSession: false },
-  }).rpc('register_for_event', {
+  const anon = createClient(stack.apiUrl, stack.anonKey, { auth: { persistSession: false } })
+  const { data: pub } = await anon.rpc('get_public_event', { p_slug: ev!.slug })
+  const { data: reg } = await anon.rpc('register_for_event', {
     p_slug: ev!.slug,
     p_first_name: 'Wanda',
     p_last_name: 'Wallet',
     p_accept_terms: true,
+    p_terms_version: pub.event.terms_version,
   })
   const passPath = `/pass#${reg.token}`
 

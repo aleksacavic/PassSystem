@@ -66,3 +66,25 @@ mutation-checked: the fix was temporarily reverted to confirm the test fails.
 | Integration tests (local Supabase incl. edge runtime and Mailpit) | 79 / 79, including 18 audit regression tests and 7 invite tests |
 | E2E (Playwright, production build and CSP) | 7 / 7 |
 | Build and bundle secret scan | clean |
+
+## Codex review 2 remediation (migration 007)
+
+Findings from `docs/CODEX_REVIEW_2.md`, fixed in `supabase/migrations/20261028000007_review2_remediation.sql`, the
+`invite-staff` and `remove-staff` Edge Functions and the registration page. Each has a regression test in
+`tests/integration/review2-regressions.test.ts`.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R2-01 | High | Pending administrator promotions move to `private.pending_admin_invites` (written only through the service-role RPC `mark_pending_admin`). The Auth trigger grants rights only on the unconfirmed → confirmed transition and deletes the pending row. Demotion also deletes it. The old `app_metadata.pending_admin` flag is ignored; unconfirmed invites that carried it were copied into the table. |
+| R2-02 | Medium | `private.scan_attempts` stores the event and a hash of the submitted credential (raw input when it isn't a valid pass). Uses of one attempt id are serialized with an advisory lock. A replay requires the same event and credential; anything else fails with `attempt_conflict`. Old cache rows (seconds-long retry aids) were dropped. |
+| R2-03 | Medium | The public event carries `terms_version` (SHA-256 of the text). The browser sends it back; a different or missing version returns `terms_changed` with the current event, and the form reloads the text and clears the checkbox. Every version of an event's terms is kept in `private.event_terms_versions`, keyed by the hash stored on the registration. A retry of a completed registration still returns its pass after a terms edit. |
+| R2-04 | Medium | A `BEFORE DELETE` trigger on `profiles` refuses to delete an administrator inside the deleting transaction (the Auth cascade), ordered against `set_user_admin` by the profile row lock. `remove-staff` reports `remove_admin_first` when that happens. Maintenance SQL can bypass it with `set local passsystem.allow_admin_delete = 'on'`. |
+| R2-05 | Medium | Retries also match the 004 key format (no phone) and the 003 format (request id only, then the stored names, email and empty phone must match too), so a retry that straddles an upgrade returns the original pass. |
+| R2-06 | Low | Event updates take the event's capacity lock (trigger), and `register_for_event` re-reads the event after acquiring it. A registration queued behind an archival or a settings change sees the new state. Registration inserts take only a KEY SHARE lock on the event row, which an UPDATE does not block, so the lock orders cannot deadlock. |
+
+Also from the review: whitespace-only phone input is treated as "no phone" in the database, matching the browser.
+
+Not changed: the public `google-wallet` function has no application-level rate limit. It only answers for a valid
+pass token and costs one signature per call. Revisit if Supabase usage shows abuse.
+
+Results after this remediation: unit 68 / 68, integration 108 / 108 (11 new regression tests), E2E 9 / 9.

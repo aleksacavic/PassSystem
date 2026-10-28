@@ -8,6 +8,7 @@ import {
   register,
   type StaffUser,
   type TestEvent,
+  termsVersion,
 } from './helpers'
 
 let admin: StaffUser
@@ -286,6 +287,7 @@ describe('rate limiting', () => {
           p_first_name: 'Rate',
           p_last_name: `L${i}`,
           p_accept_terms: true,
+          p_terms_version: await termsVersion(ev2.slug),
         })
         results.push(data)
       }

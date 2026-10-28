@@ -27,6 +27,7 @@ describe('public event page', () => {
         'status',
         'terms_required',
         'terms_text',
+        'terms_version',
         'timezone',
       ].sort(),
     )

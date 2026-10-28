@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { randomUUID } from 'node:crypto'
-import { anonClient, createEvent, createStaff, db, type StaffUser } from './helpers'
+import { anonClient, createEvent, createStaff, db, termsVersion, type StaffUser } from './helpers'
 
 let admin: StaffUser
 
@@ -8,9 +8,15 @@ beforeAll(async () => {
   admin = await createStaff({ admin: true, label: 'terms-admin' })
 })
 
-const reg = (slug: string, extra: Record<string, unknown> = {}) =>
+const reg = async (slug: string, extra: Record<string, unknown> = {}) =>
   anonClient()
-    .rpc('register_for_event', { p_slug: slug, p_first_name: 'Tia', p_last_name: 'Terms', ...extra })
+    .rpc('register_for_event', {
+      p_slug: slug,
+      p_first_name: 'Tia',
+      p_last_name: 'Terms',
+      p_terms_version: await termsVersion(slug),
+      ...extra,
+    })
     .then((r) => r.data)
 
 describe('attendance terms', () => {

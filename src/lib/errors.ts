@@ -8,6 +8,7 @@ const MESSAGES: Record<string, string> = {
   event_full: 'This event has reached its maximum capacity.',
   invalid_input: 'Please check the details you entered.',
   terms_not_accepted: 'Please read and accept the attendance terms.',
+  terms_changed: 'The organizer has just updated the attendance terms. Please read them again and accept.',
   duplicate_request: 'This registration was already submitted. Please reload the page to register again.',
   pass_not_found: 'This pass could not be found. It may have been replaced by a newer pass.',
   not_authenticated: 'Please sign in again.',
