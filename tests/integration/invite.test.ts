@@ -121,4 +121,54 @@ describe('invite-staff Edge Function', () => {
     })
     expect(error).not.toBeNull()
   })
+
+  it('creates a shareable invite link without sending email', async () => {
+    const email = `inv-link-${uid()}@passsystem.test`
+    const site = 'http://127.0.0.1:4173/'
+    const res = await invite(await tokenOf(admin), { email, delivery: 'link', redirectTo: site })
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ ok: true, email, admin: false })
+    const link = new URL(String(res.body?.link))
+    expect(`${link.origin}${link.pathname}`).toBe('http://127.0.0.1:4173/invite')
+    const token = new URLSearchParams(link.hash.slice(1)).get('token')!
+    expect(token).toMatch(/^[A-Za-z0-9_-]{10,200}$/)
+
+    // No email was sent.
+    const mail = await (
+      await fetch(`http://127.0.0.1:54324/api/v1/search?query=${encodeURIComponent(`to:"${email}"`)}`)
+    ).json()
+    expect(mail.messages_count ?? 0).toBe(0)
+
+    // A new link for the same pending invite replaces the old one.
+    const again = await invite(await tokenOf(admin), { email, delivery: 'link', redirectTo: site })
+    expect(again.status).toBe(200)
+    expect(again.body?.user_id).toBe(res.body?.user_id)
+    const token2 = new URLSearchParams(new URL(String(again.body?.link)).hash.slice(1)).get('token')!
+    expect(token2).not.toBe(token)
+
+    // The link signs the invited person in exactly once.
+    const guest = anonClient()
+    const first = await guest.auth.verifyOtp({ type: 'invite', token_hash: token2 })
+    expect(first.error).toBeNull()
+    expect(first.data.session?.user.email).toBe(email)
+    const reuse = await anonClient().auth.verifyOtp({ type: 'invite', token_hash: token2 })
+    expect(reuse.error).not.toBeNull()
+
+    // Once accepted, the account exists: no more invite links.
+    const dup = await invite(await tokenOf(admin), { email, delivery: 'link', redirectTo: site })
+    expect(dup.status).toBe(409)
+  })
+
+  it('invite links: administrators only, and a site address is required', async () => {
+    const email = `inv-link2-${uid()}@passsystem.test`
+    const denied = await invite(await tokenOf(staff), {
+      email,
+      delivery: 'link',
+      redirectTo: 'https://x.test/',
+    })
+    expect(denied.status).toBe(403)
+    const noSite = await invite(await tokenOf(admin), { email, delivery: 'link' })
+    expect(noSite.status).toBe(400)
+    expect(await db(`select 1 from auth.users where email = $1`, [email])).toHaveLength(0)
+  })
 })

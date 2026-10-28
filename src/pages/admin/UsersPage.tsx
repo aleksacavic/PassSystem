@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useAuth } from '../../auth/AuthProvider'
 import {
   checkCfHeaderSpoofable,
@@ -14,6 +14,7 @@ import { validateEmail } from '../../lib/validation'
 import { formatDateTime } from '../../lib/datetime'
 import type { Profile } from '../../lib/types'
 import { PageHeader } from '../../components/AdminLayout'
+import { CopyButton } from '../../components/CopyButton'
 import { Alert, Badge, Button, Card, Field, Input, Spinner } from '../../components/ui'
 
 export default function UsersPage() {
@@ -23,7 +24,10 @@ export default function UsersPage() {
   const [ipCheck, setIpCheck] = useState<ClientIpDiagnosis | null>(null)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteAdmin, setInviteAdmin] = useState(false)
-  const [inviting, setInviting] = useState(false)
+  const [inviting, setInviting] = useState<'email' | 'link' | null>(null)
+  const [inviteLink, setInviteLink] = useState<{ email: string; link: string } | null>(null)
+  const [linking, setLinking] = useState<string | null>(null)
+  const inviteCardRef = useRef<HTMLDivElement>(null)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [inviteDone, setInviteDone] = useState<string | null>(null)
   const [removed, setRemoved] = useState<string | null>(null)
@@ -53,19 +57,23 @@ export default function UsersPage() {
     }
   }
 
-  async function onInvite(e: FormEvent) {
+  async function onInvite(e: FormEvent, delivery: 'email' | 'link' = 'email') {
     e.preventDefault()
     setInviteError(null)
     setInviteDone(null)
+    setInviteLink(null)
     const email = inviteEmail.trim().toLowerCase()
     const invalid = email ? validateEmail(email) : 'Enter an email address.'
     if (invalid) return setInviteError(invalid)
-    setInviting(true)
+    setInviting(delivery)
     try {
-      const res = await inviteStaff(email, inviteAdmin)
+      const res = await inviteStaff(email, inviteAdmin, delivery)
+      if (res.link) setInviteLink({ email: res.email, link: res.link })
       setInviteDone(
         res.warning ??
-          `Invite sent to ${res.email}${res.admin ? ' as administrator' : ''}. They choose a password from the email link.`,
+          (res.link
+            ? `Invite link for ${res.email}${res.admin ? ' (administrator)' : ''} is ready. Send it to them yourself.`
+            : `Invite sent to ${res.email}${res.admin ? ' as administrator' : ''}. They choose a password from the email link.`),
       )
       setInviteEmail('')
       setInviteAdmin(false)
@@ -73,7 +81,29 @@ export default function UsersPage() {
     } catch (err) {
       setInviteError((err as Error).message)
     } finally {
-      setInviting(false)
+      setInviting(null)
+    }
+  }
+
+  /** New one-time link for someone whose invite is still pending (replaces the earlier link). */
+  async function linkFor(u: Profile) {
+    if (!u.email) return
+    setError(null)
+    setInviteError(null)
+    setInviteDone(null)
+    setInviteLink(null)
+    setLinking(u.id)
+    try {
+      const res = await inviteStaff(u.email, false, 'link')
+      if (res.link) {
+        setInviteLink({ email: res.email, link: res.link })
+        setInviteDone(`New invite link for ${res.email} is ready. Earlier links for them stop working.`)
+        inviteCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setLinking(null)
     }
   }
 
@@ -122,49 +152,104 @@ export default function UsersPage() {
           “Allow new users to sign up”.
         </Alert>
       )}
-      <Card className="mb-6 p-5">
-        <h2 className="text-base font-semibold">Invite staff</h2>
-        <p className="mt-1 text-sm text-ink-600">
-          They receive an email, choose a password, and can then be assigned to events from each event’s Staff
-          tab.
-        </p>
-        <form className="mt-4 space-y-4" onSubmit={onInvite} noValidate>
-          <Field label="Email">
-            {(p) => (
-              <Input
-                {...p}
-                type="email"
-                inputMode="email"
-                autoCapitalize="none"
-                autoComplete="off"
-                spellCheck={false}
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
+      <div ref={inviteCardRef} className="scroll-mt-20">
+        <Card className="mb-6 p-5">
+          <h2 className="text-base font-semibold">Invite staff</h2>
+          <p className="mt-1 text-sm text-ink-600">
+            They receive an email, choose a password, and can then be assigned to events from each event’s
+            Staff tab.
+          </p>
+          <form className="mt-4 space-y-4" onSubmit={(e) => onInvite(e)} noValidate>
+            <Field label="Email">
+              {(p) => (
+                <Input
+                  {...p}
+                  type="email"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                />
+              )}
+            </Field>
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                id="invite-admin"
+                type="checkbox"
+                className="mt-0.5 size-5 rounded border-ink-300 accent-ink-900"
+                checked={inviteAdmin}
+                onChange={(e) => setInviteAdmin(e.target.checked)}
               />
-            )}
-          </Field>
-          <label className="flex items-start gap-3 text-sm">
-            <input
-              id="invite-admin"
-              type="checkbox"
-              className="mt-0.5 size-5 rounded border-ink-300 accent-ink-900"
-              checked={inviteAdmin}
-              onChange={(e) => setInviteAdmin(e.target.checked)}
-            />
-            <span>
-              <span className="font-semibold">Administrator</span>
-              <span className="block text-ink-500">
-                Full access to every event, can create events and invite staff.
+              <span>
+                <span className="font-semibold">Administrator</span>
+                <span className="block text-ink-500">
+                  Full access to every event, can create events and invite staff.
+                </span>
               </span>
-            </span>
-          </label>
-          {inviteError && <Alert tone="bad">{inviteError}</Alert>}
-          {inviteDone && <Alert tone="ok">{inviteDone}</Alert>}
-          <Button type="submit" loading={inviting}>
-            Send invite
-          </Button>
-        </form>
-      </Card>
+            </label>
+            {inviteError && <Alert tone="bad">{inviteError}</Alert>}
+            {inviteDone && <Alert tone="ok">{inviteDone}</Alert>}
+            {inviteLink && (
+              <div
+                className="space-y-2 rounded-xl border border-ink-200 bg-ink-50 p-3"
+                data-testid="invite-link"
+              >
+                <label htmlFor="invite-link-url" className="text-sm font-semibold">
+                  Invite link for {inviteLink.email}
+                </label>
+                <input
+                  id="invite-link-url"
+                  readOnly
+                  value={inviteLink.link}
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 font-mono text-xs"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <CopyButton text={inviteLink.link} label="Copy link" size="sm" />
+                  {typeof navigator.share === 'function' && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() =>
+                        navigator
+                          .share({
+                            title: 'PassSystem invite',
+                            text: 'Your PassSystem staff invite:',
+                            url: inviteLink.link,
+                          })
+                          .catch(() => undefined)
+                      }
+                    >
+                      Share…
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-ink-500">
+                  Send it by WhatsApp, SMS or any chat. It works once and expires after the time set in
+                  Supabase (Authentication → Emails, default 24 hours). Anyone with the link can claim the
+                  account, so send it only to that person.
+                </p>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" loading={inviting === 'email'} disabled={inviting !== null}>
+                Send invite email
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                loading={inviting === 'link'}
+                disabled={inviting !== null}
+                onClick={(e) => onInvite(e, 'link')}
+              >
+                Create invite link
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
       {error && (
         <Alert tone="bad" className="mb-4">
           {error}
@@ -194,6 +279,11 @@ export default function UsersPage() {
                   {u.id !== session?.user.id && (u.confirmed_at || u.is_admin) && (
                     <Button variant="ghost" size="sm" onClick={() => toggle(u)}>
                       {u.is_admin ? 'Remove admin' : 'Make admin'}
+                    </Button>
+                  )}
+                  {!u.confirmed_at && u.email && (
+                    <Button variant="ghost" size="sm" loading={linking === u.id} onClick={() => linkFor(u)}>
+                      Invite link
                     </Button>
                   )}
                   {u.id !== session?.user.id && !u.is_admin && (

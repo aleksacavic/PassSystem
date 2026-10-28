@@ -19,6 +19,8 @@ interface AuthState {
   /** True after an invite or password-recovery link: user must choose a password. */
   needsPassword: boolean
   clearNeedsPassword: () => void
+  /** After accepting an invite link on the /invite page. */
+  markNeedsPassword: () => void
   refreshProfile: () => Promise<void>
   signOut: () => Promise<void>
 }
@@ -106,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: Boolean(profile?.is_admin),
       needsPassword,
       clearNeedsPassword: () => setNeedsPassword(false),
+      markNeedsPassword: () => setNeedsPassword(true),
       refreshProfile,
       signOut,
     }),

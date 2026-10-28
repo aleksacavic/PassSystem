@@ -277,6 +277,8 @@ export interface InviteResult {
   email: string
   admin: boolean
   warning?: string
+  /** Only for delivery 'link': one-time invite link to share by hand. */
+  link?: string
 }
 
 /**
@@ -318,12 +320,29 @@ async function invokeFunction<T>(
   )
 }
 
-export async function inviteStaff(email: string, admin: boolean): Promise<InviteResult> {
+export async function inviteStaff(
+  email: string,
+  admin: boolean,
+  delivery: 'email' | 'link' = 'email',
+): Promise<InviteResult> {
   return invokeFunction<InviteResult>(
     'invite-staff',
-    { email, admin, redirectTo: `${siteOrigin()}/` },
+    { email, admin, redirectTo: `${siteOrigin()}/`, delivery },
     'Inviting from PassSystem is not available yet (the invite service is not deployed). Invite the person in the Supabase dashboard: Authentication → Users → Invite user.',
   )
+}
+
+/** Redeem an invite link's token (from the /invite page); signs the invited person in. */
+export async function acceptInvite(tokenHash: string): Promise<void> {
+  const { error } = await supabase.auth.verifyOtp({ type: 'invite', token_hash: tokenHash })
+  if (error) {
+    throw new ApiError(
+      /expired|invalid/i.test(error.message)
+        ? 'This invite link has expired or was already used. Ask your administrator for a new link.'
+        : 'The invite could not be accepted. Check your connection and try again.',
+      'invite_invalid',
+    )
+  }
 }
 
 /** Administrators: delete a (non-administrator) staff account, including pending invites. */

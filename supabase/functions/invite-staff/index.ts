@@ -7,8 +7,14 @@
 // the email link. Optionally marks the invite as an administrator invite;
 // rights are applied when the invite is accepted.
 //
-// Request:  POST { "email": string, "admin"?: boolean, "redirectTo"?: string }
-// Response: 200 { ok: true, user_id, email, admin }
+// With "delivery": "link" no email is sent: the function returns a one-time
+// link to the site's /invite page instead, for the administrator to share
+// (WhatsApp, SMS…). Also works again for an invite that is still pending.
+// The token sits in the URL fragment and is only redeemed when the person
+// presses "Accept", so link previews in chat apps cannot use it up.
+//
+// Request:  POST { "email": string, "admin"?: boolean, "redirectTo"?: string, "delivery"?: "email" | "link" }
+// Response: 200 { ok: true, user_id, email, admin, link? }
 //           4xx { ok: false, error: <code>, message }
 //
 // No third-party imports: the function talks to Supabase Auth and PostgREST
@@ -53,7 +59,7 @@ Deno.serve(async (req) => {
   if (!(await isAdmin(supa, caller.id)))
     return fail(403, 'admin_required', 'Only administrators can invite staff.')
 
-  let body: { email?: unknown; admin?: unknown; redirectTo?: unknown }
+  let body: { email?: unknown; admin?: unknown; redirectTo?: unknown; delivery?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -75,21 +81,43 @@ Deno.serve(async (req) => {
     }
   }
 
-  const inviteUrl = new URL(`${url}/auth/v1/invite`)
-  if (redirectTo) inviteUrl.searchParams.set('redirect_to', redirectTo)
-  const inviteRes = await fetch(inviteUrl, {
-    method: 'POST',
-    headers: serviceHeaders(supa),
-    body: JSON.stringify({ email, data: { invited_by: caller.id } }),
-  })
-  const invited = (await inviteRes.json().catch(() => ({}))) as {
+  const byLink = body.delivery === 'link'
+  if (byLink && !redirectTo) return fail(400, 'invalid_input', 'Missing site address for the invite link.')
+
+  let inviteRes: Response
+  if (byLink) {
+    inviteRes = await fetch(`${url}/auth/v1/admin/generate_link`, {
+      method: 'POST',
+      headers: serviceHeaders(supa),
+      body: JSON.stringify({
+        type: 'invite',
+        email,
+        data: { invited_by: caller.id },
+        redirect_to: redirectTo,
+      }),
+    })
+  } else {
+    const inviteUrl = new URL(`${url}/auth/v1/invite`)
+    if (redirectTo) inviteUrl.searchParams.set('redirect_to', redirectTo)
+    inviteRes = await fetch(inviteUrl, {
+      method: 'POST',
+      headers: serviceHeaders(supa),
+      body: JSON.stringify({ email, data: { invited_by: caller.id } }),
+    })
+  }
+  const raw = (await inviteRes.json().catch(() => ({}))) as {
     id?: string
+    user?: { id?: string }
+    hashed_token?: string
+    properties?: { hashed_token?: string }
     code?: number
     error_code?: string
     msg?: string
     message?: string
   }
-  if (!inviteRes.ok || !invited.id) {
+  const invited = { ...raw, id: raw.id ?? raw.user?.id }
+  const hashedToken = raw.hashed_token ?? raw.properties?.hashed_token
+  if (!inviteRes.ok || !invited.id || (byLink && !hashedToken)) {
     const msg = `${invited.error_code ?? ''} ${invited.msg ?? invited.message ?? ''}`
     if (
       inviteRes.status === 422 &&
@@ -108,6 +136,9 @@ Deno.serve(async (req) => {
     return fail(502, 'invite_failed', 'The invite email could not be sent. Try again later.')
   }
   const invitedId = invited.id
+  const link = byLink
+    ? `${new URL(redirectTo!).origin}/invite#token=${encodeURIComponent(hashedToken!)}`
+    : undefined
 
   if (makeAdmin) {
     // Granted by a database trigger only once the invite is accepted (email
@@ -125,11 +156,12 @@ Deno.serve(async (req) => {
         user_id: invitedId,
         email,
         admin: false,
+        link,
         warning:
           'Invite sent, but administrator rights could not be prepared. Use "Make admin" after they accept.',
       })
     }
   }
 
-  return reply(200, { ok: true, user_id: invitedId, email, admin: makeAdmin })
+  return reply(200, { ok: true, user_id: invitedId, email, admin: makeAdmin, link })
 })

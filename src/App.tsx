@@ -13,6 +13,7 @@ import RouteErrorPage from './pages/public/RouteErrorPage'
 
 // Staff-only code is split out so the attendee pages stay small on mobile networks.
 const LoginPage = lazy(() => import('./pages/admin/LoginPage'))
+const InvitePage = lazy(() => import('./pages/admin/InvitePage'))
 const AccountPage = lazy(() => import('./pages/admin/AccountPage'))
 const EventsPage = lazy(() => import('./pages/admin/EventsPage'))
 const EventFormPage = lazy(() => import('./pages/admin/EventFormPage'))
@@ -56,6 +57,7 @@ const router = createBrowserRouter([
         element: <Lazy />,
         children: [
           { path: '/login', element: <LoginPage /> },
+          { path: '/invite', element: <InvitePage /> },
           {
             element: <StaffArea />,
             children: [

@@ -345,6 +345,41 @@ test('administrator invites staff from the Staff page; invitee sets a password f
   await ctx.close()
 })
 
+test('administrator creates an invite link; the invitee accepts it without any email', async ({
+  browser,
+}) => {
+  const ctx = await browser.newContext({ baseURL })
+  const page = await ctx.newPage()
+  await signIn(page, organizer.email, organizer.password)
+  await page.goto('/admin/users')
+  const email = `e2e-link-${randomUUID().slice(0, 8)}@passsystem.test`
+  await page.getByLabel('Email').fill(email)
+  await page.getByRole('button', { name: 'Create invite link' }).click()
+  await expect(page.getByText(`Invite link for ${email} is ready`)).toBeVisible()
+  const link = await page.getByLabel(`Invite link for ${email}`).inputValue()
+  expect(link).toMatch(/\/invite#token=/)
+  await expect(page.getByRole('listitem').filter({ hasText: email })).toContainText('Invite pending')
+
+  const invitee = await (await browser.newContext({ baseURL })).newPage()
+  await invitee.goto(link)
+  await expect(invitee.getByRole('heading', { name: 'You’re invited to PassSystem' })).toBeVisible()
+  await invitee.getByRole('button', { name: 'Accept invite' }).click()
+  await expect(invitee).toHaveURL(/\/account$/)
+  await expect(invitee.getByRole('heading', { name: 'Choose your password' })).toBeVisible()
+  const password = `Linked-${randomUUID().slice(0, 8)}1`
+  await invitee.getByLabel('New password', { exact: true }).fill(password)
+  await invitee.getByLabel('Confirm new password').fill(password)
+  await invitee.getByRole('button', { name: 'Save password' }).click()
+  await expect(invitee).toHaveURL(/\/admin$/)
+
+  // The same link cannot be used twice.
+  const again = await (await browser.newContext({ baseURL })).newPage()
+  await again.goto(link)
+  await again.getByRole('button', { name: 'Accept invite' }).click()
+  await expect(again.getByText(/expired or was already used/)).toBeVisible()
+  await ctx.close()
+})
+
 test('Staff page deployment check detects a forgeable cf-connecting-ip header (local stack)', async ({
   browser,
 }) => {
