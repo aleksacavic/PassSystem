@@ -107,10 +107,10 @@ a production build under the production CSP:
 | --- | --- |
 | Site | https://passsystem-phi.vercel.app (Vercel project `passsystem`, linked to this GitHub repo) |
 | Supabase project | `wvwpedmwhsddsfixjpjd` (region ap-southeast-2, Postgres 17.11) |
-| Migrations | 4/4 applied through the Management API and recorded in `supabase_migrations.schema_migrations` (004 = audit remediation, applied 2026-10-28) |
-| Frontend | Production deployment of commit `84b9dc0` (audit remediation) |
-| Rate-limit IP source | `trust_cf_connecting_ip = 1` (Supabase Cloud). Pending confirmation with the Staff page **Test header spoofing** button. If it reports FORGEABLE, set the value to 0. |
-| Edge Function `invite-staff` | **Not deployed yet.** The deploy token lacks `edge_functions_read`/`edge_functions_write`. The Staff page invite form will error until it is deployed. |
+| Migrations | 6/6 applied through the Management API and recorded in `supabase_migrations.schema_migrations` (004 = audit remediation, 005 = wallet lookup, 006 = attendance terms + phone; all applied 2026-10-28) |
+| Frontend | Production deployment of commit `c3b41ac` (attendance terms, optional phone, Google Wallet button hidden until `VITE_GOOGLE_WALLET=1`) |
+| Rate-limit IP source | `trust_cf_connecting_ip = 1` (Supabase Cloud). The deployment check line reports `cf-connecting-ip`. The in-browser **Test header spoofing** button cannot run against Supabase Cloud (the request carrying the probe header is rejected before it reaches the database), so forgeability is unconfirmed. A server-side probe (pg_net request through the public URL) is pending owner approval. |
+| Edge Functions `invite-staff`, `google-wallet` | **Not deployed yet.** The deploy token lacks Edge Functions read/write; the owner is issuing a new token. Until then the Staff page invite form reports that the function is not deployed. Google Wallet also needs the secrets in `docs/GOOGLE_WALLET.md`. |
 | Live schema checks | RLS on all 5 tables; anon can execute only `get_pass`, `get_public_event`, `register_for_event`; every SECURITY DEFINER function pins `search_path`; credential hashes not selectable |
 | Auth | Public sign-up **off**, email login on, minimum password length 10, Site URL and redirect allow list set to the Vercel domain |
 | Vercel protection | Standard: production domain public, preview deployments require Vercel login |
@@ -120,8 +120,8 @@ a production build under the production CSP:
 Deployment notes:
 - Merging to `main` deploys production automatically. The first production build was made from the PR branch
   through the Vercel API.
-- Still to verify on the live stack: `diagnose_client_ip` reports `cf-connecting-ip` (Staff page, deployment
-  check line), and a real-device camera scan.
+- Still to verify on the live stack: a real-device camera scan, and the header-spoofing probe above.
+- Have the default attendance terms (`private.default_terms_text()`, migration 006) reviewed by a UAE lawyer.
 - Optional: set the Supabase password requirement to "letters and digits" so it matches the app's own check.
 - Remove the deployment tokens (Supabase access token, Vercel token) when they are no longer needed.
 
