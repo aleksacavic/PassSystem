@@ -16,7 +16,8 @@ Legend: ✅ done and tested · 🟡 done, needs real-world verification · ⏳ b
 | F. Testing (typecheck, lint, unit, integration, E2E) | ✅ (all passing, see TEST_RESULTS.md) |
 | G. Deployment | ✅ Live at https://passsystem-phi.vercel.app (Supabase + Vercel), 2026-10-28 |
 | H. Documentation and review package | ✅ README, CODEX_HANDOVER, this file, TEST_RESULTS |
-| Codex audit → remediation | ⏳ Waiting for the Codex audit report |
+| Independent pre-audit → remediation | ✅ 17 findings; 15 fixed, F-03 partly fixed (CAPTCHA pending), F-16 deferred. See AUDIT_REMEDIATION.md |
+| Codex audit → remediation | ⏳ Waiting for the Codex audit report (to run on the remediated head) |
 
 ## Definition of done: workflow verification
 
@@ -106,7 +107,10 @@ a production build under the production CSP:
 | --- | --- |
 | Site | https://passsystem-phi.vercel.app (Vercel project `passsystem`, linked to this GitHub repo) |
 | Supabase project | `wvwpedmwhsddsfixjpjd` (region ap-southeast-2, Postgres 17.11) |
-| Migrations | 3/3 applied through the Management API and recorded in `supabase_migrations.schema_migrations` |
+| Migrations | 4/4 applied through the Management API and recorded in `supabase_migrations.schema_migrations` (004 = audit remediation, applied 2026-10-28) |
+| Frontend | Production deployment of commit `84b9dc0` (audit remediation) |
+| Rate-limit IP source | `trust_cf_connecting_ip = 1` (Supabase Cloud). Pending confirmation with the Staff page **Test header spoofing** button. If it reports FORGEABLE, set the value to 0. |
+| Edge Function `invite-staff` | **Not deployed yet.** The deploy token lacks `edge_functions_read`/`edge_functions_write`. The Staff page invite form will error until it is deployed. |
 | Live schema checks | RLS on all 5 tables; anon can execute only `get_pass`, `get_public_event`, `register_for_event`; every SECURITY DEFINER function pins `search_path`; credential hashes not selectable |
 | Auth | Public sign-up **off**, email login on, minimum password length 10, Site URL and redirect allow list set to the Vercel domain |
 | Vercel protection | Standard: production domain public, preview deployments require Vercel login |
