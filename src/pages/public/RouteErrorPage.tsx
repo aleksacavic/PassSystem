@@ -8,8 +8,8 @@ export default function RouteErrorPage() {
     <PublicLayout>
       <Card className="p-6 text-center">
         <h1 className="text-xl font-bold">Something went wrong</h1>
-        <p className="mt-2 text-ink-600">The page could not be shown. Check the link or start again.</p>
-        <Link to="/" className="mt-4 inline-block font-semibold text-accent-600 underline">
+        <p className="mt-2 text-fg-muted">The page could not be shown. Check the link or start again.</p>
+        <Link to="/" className="mt-4 inline-block font-semibold text-brand underline">
           Go to start page
         </Link>
       </Card>

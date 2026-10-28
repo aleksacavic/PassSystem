@@ -49,9 +49,9 @@ export function ActivityTab({ event }: { event: EventRow }) {
           <Spinner />
         </div>
       ) : logs.length === 0 ? (
-        <p className="p-6 text-center text-ink-500">No scans yet.</p>
+        <p className="p-6 text-center text-fg-subtle">No scans yet.</p>
       ) : (
-        <ul className="divide-y divide-ink-100">
+        <ul className="divide-y divide-line-soft">
           {logs.map((l) => {
             const meta = LABELS[l.result]
             const name = l.registration_id ? names.get(l.registration_id) : null
@@ -61,7 +61,7 @@ export function ActivityTab({ event }: { event: EventRow }) {
                   <p className="truncate font-semibold">
                     {name ?? (l.result === 'wrong_event' ? 'Pass from another event' : 'Unknown pass')}
                   </p>
-                  <p className="text-xs text-ink-500">{formatDateTime(l.attempted_at, event.timezone)}</p>
+                  <p className="text-xs text-fg-subtle">{formatDateTime(l.attempted_at, event.timezone)}</p>
                 </div>
                 <Badge tone={meta.tone}>{meta.label}</Badge>
               </li>

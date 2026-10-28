@@ -1,3 +1,4 @@
+import { Download } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { getPass, type RegistrationResult } from '../../lib/api'
@@ -98,8 +99,8 @@ function PassPage() {
       <PublicLayout>
         <Card className="p-6 text-center">
           <h1 className="text-xl font-bold">No pass in this link</h1>
-          <p className="mt-2 text-ink-600">Open the full pass link you received after registering.</p>
-          <Link to="/" className="mt-4 inline-block font-semibold text-accent-600 underline">
+          <p className="mt-2 text-fg-muted">Open the full pass link you received after registering.</p>
+          <Link to="/" className="mt-4 inline-block font-semibold text-brand underline">
             Passes saved on this device
           </Link>
         </Card>
@@ -120,7 +121,7 @@ function PassPage() {
       <PublicLayout>
         <Card className="p-6 text-center">
           <h1 className="text-xl font-bold">{state.notFound ? 'Pass not found' : 'Could not load pass'}</h1>
-          <p className="mt-2 text-ink-600">{state.message}</p>
+          <p className="mt-2 text-fg-muted">{state.message}</p>
           {!state.notFound && (
             <Button className="mt-5" onClick={retry}>
               Try again
@@ -170,9 +171,9 @@ function PassPage() {
         <Card className="overflow-hidden">
           <div className="space-y-4 p-5">
             <EventInfo event={event} compact />
-            <div className="flex items-center justify-between gap-3 border-t border-ink-100 pt-4">
+            <div className="flex items-center justify-between gap-3 border-t border-line-soft pt-4">
               <div className="min-w-0">
-                <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">Attendee</p>
+                <p className="text-xs font-semibold tracking-wide text-fg-subtle uppercase">Attendee</p>
                 <p className="truncate text-xl font-bold" data-testid="pass-name">
                   {fullName}
                 </p>
@@ -181,15 +182,15 @@ function PassPage() {
             </div>
           </div>
 
-          <div className={usable ? 'bg-white px-5 pb-5' : 'bg-white px-5 pb-5 opacity-30 grayscale'}>
+          <div className={usable ? 'bg-surface px-5 pb-5' : 'bg-surface px-5 pb-5 opacity-30 grayscale'}>
             <QrImage
               dataUrl={qr}
               alt={`Entry QR code for ${fullName}`}
-              className="mx-auto max-w-[340px] ring-1 ring-ink-100"
+              className="mx-auto max-w-[340px] ring-1 ring-line-soft"
             />
             {token && (
               <p
-                className="mt-3 text-center font-mono text-sm tracking-wider text-ink-600"
+                className="mt-3 text-center font-mono text-sm tracking-wider text-fg-muted"
                 data-testid="pass-code"
               >
                 {formatPassToken(token)}
@@ -197,22 +198,22 @@ function PassPage() {
             )}
           </div>
 
-          <div className="border-t border-ink-100 bg-ink-50 px-5 py-4 text-center">
+          <div className="border-t border-line-soft bg-surface-sunk px-5 py-4 text-center">
             {pass.status === 'registered' && (
               <p className="text-base font-semibold">Show this QR code at the entrance.</p>
             )}
             {pass.status === 'checked_in' && (
-              <p className="text-base font-semibold text-ok-700">
+              <p className="text-base font-semibold text-success-fg">
                 This pass was used for entry on {formatDateTime(pass.checked_in_at, event.timezone)}.
               </p>
             )}
             {pass.status === 'revoked' && (
-              <p className="text-base font-semibold text-bad-700">
+              <p className="text-base font-semibold text-danger-fg">
                 This pass has been revoked and is not valid for entry. Contact the organizer.
               </p>
             )}
             {usable && (
-              <p className="mt-1 text-sm text-ink-500">Tip: turn up your screen brightness at the door.</p>
+              <p className="mt-1 text-sm text-fg-subtle">Tip: turn up your screen brightness at the door.</p>
             )}
           </div>
         </Card>
@@ -224,7 +225,7 @@ function PassPage() {
         )}
         {usable && (
           <div className="no-print grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Button size="lg" onClick={onSave} loading={saving} disabled={!qr}>
+            <Button size="lg" icon={Download} onClick={onSave} loading={saving} disabled={!qr}>
               Save QR
             </Button>
             {url && <CopyButton text={url} label="Copy pass link" size="lg" />}
@@ -232,14 +233,14 @@ function PassPage() {
         )}
         {saveError && <Alert tone="warn">{saveError}</Alert>}
 
-        <p className="no-print text-center text-sm text-ink-500">
+        <p className="no-print text-center text-sm text-fg-subtle">
           This link is your personal pass. Do not share it with others.
         </p>
         {storedHere && token && (
           <div className="no-print text-center">
             <button
               type="button"
-              className="text-sm font-semibold text-accent-600 underline"
+              className="text-sm font-semibold text-brand underline"
               onClick={() => {
                 forgetPass(token)
                 setStoredHere(false)
@@ -247,7 +248,7 @@ function PassPage() {
             >
               Remove this pass from this device
             </button>
-            <p className="mt-1 text-xs text-ink-500">
+            <p className="mt-1 text-xs text-fg-subtle">
               Use this on a shared phone or tablet. Your pass stays valid.
             </p>
           </div>

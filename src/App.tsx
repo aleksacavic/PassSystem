@@ -91,7 +91,7 @@ export default function App() {
     return (
       <div className="mx-auto max-w-md p-6">
         <h1 className="text-xl font-bold">PassSystem is not configured</h1>
-        <p className="mt-2 text-ink-600">
+        <p className="mt-2 text-fg-muted">
           Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> and rebuild. See
           README.
         </p>

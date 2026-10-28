@@ -4,11 +4,11 @@ import { cx } from './cx'
 type Tone = 'neutral' | 'ok' | 'bad' | 'warn' | 'accent'
 
 const tones: Record<Tone, string> = {
-  neutral: 'bg-ink-100 text-ink-700 ring-ink-200',
-  ok: 'bg-ok-50 text-ok-700 ring-ok-100',
-  bad: 'bg-bad-50 text-bad-700 ring-bad-100',
-  warn: 'bg-warn-50 text-warn-800 ring-warn-100',
-  accent: 'bg-accent-50 text-accent-700 ring-accent-100',
+  neutral: 'bg-surface-muted text-fg ring-line',
+  ok: 'bg-success-soft text-success-fg ring-success-muted',
+  bad: 'bg-danger-soft text-danger-fg ring-danger-muted',
+  warn: 'bg-warning-soft text-warning-fg ring-warning-muted',
+  accent: 'bg-brand-soft text-brand-strong ring-brand-muted',
 }
 
 export function Badge({

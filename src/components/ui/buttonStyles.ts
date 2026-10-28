@@ -1,25 +1,39 @@
 import { cx } from './cx'
 
-export type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success'
+export type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost' | 'success'
 export type Size = 'sm' | 'md' | 'lg'
 
+// Shapes, heights and colours come from the component/semantic tokens in src/styles/tokens.css.
 const base =
-  'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors select-none disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation'
+  'inline-flex items-center justify-center gap-2 rounded-control font-semibold whitespace-nowrap transition-colors select-none touch-manipulation disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:shrink-0'
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-ink-900 text-white hover:bg-ink-700 active:bg-ink-800',
-  secondary: 'bg-white text-ink-900 ring-1 ring-inset ring-ink-200 hover:bg-ink-100 active:bg-ink-200',
-  ghost: 'bg-transparent text-ink-700 hover:bg-ink-100 active:bg-ink-200',
-  danger: 'bg-bad-600 text-white hover:bg-bad-700',
-  success: 'bg-ok-600 text-white hover:bg-ok-700',
+  primary: 'bg-primary text-on-primary hover:bg-primary-hover active:bg-primary-active',
+  secondary: 'bg-surface text-fg ring-1 ring-inset ring-line hover:bg-surface-sunk active:bg-surface-muted',
+  ghost: 'bg-transparent text-fg-muted hover:bg-surface-muted hover:text-fg active:bg-surface-strong',
+  danger: 'bg-danger text-on-status hover:bg-danger-strong',
+  'danger-ghost': 'bg-transparent text-danger-fg hover:bg-danger-soft active:bg-danger-muted',
+  success: 'bg-success text-on-status hover:bg-success-strong',
 }
 
 const sizes: Record<Size, string> = {
-  sm: 'min-h-9 px-3 text-sm',
-  md: 'min-h-11 px-4 text-[15px]',
-  lg: 'min-h-14 px-6 text-lg',
+  sm: 'min-h-(--control-sm) px-3 text-sm [&_svg]:size-4',
+  md: 'min-h-(--control-md) px-4 text-[15px] [&_svg]:size-[18px]',
+  lg: 'min-h-(--control-lg) px-6 text-lg [&_svg]:size-5',
 }
 
-export function buttonClass(variant: Variant = 'primary', size: Size = 'md', extra?: string) {
-  return cx(base, variants[variant], sizes[size], extra)
+/** Square buttons that show only an icon. */
+const iconSizes: Record<Size, string> = {
+  sm: 'size-(--control-sm) [&_svg]:size-4',
+  md: 'size-(--control-md) [&_svg]:size-5',
+  lg: 'size-(--control-lg) [&_svg]:size-6',
+}
+
+export function buttonClass(
+  variant: Variant = 'primary',
+  size: Size = 'md',
+  extra?: string,
+  iconOnly = false,
+) {
+  return cx(base, variants[variant], iconOnly ? iconSizes[size] : sizes[size], extra)
 }

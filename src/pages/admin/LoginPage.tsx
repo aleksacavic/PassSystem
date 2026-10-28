@@ -56,7 +56,7 @@ export default function LoginPage() {
         <div className="mb-6 flex flex-col items-center text-center">
           <LogoMark className="size-12" />
           <h1 className="mt-3 text-2xl font-bold tracking-tight">Staff sign in</h1>
-          <p className="mt-1 text-sm text-ink-600">For organizers and door operators.</p>
+          <p className="mt-1 text-sm text-fg-muted">For organizers and door operators.</p>
         </div>
         <Card className="p-5">
           <form className="space-y-4" onSubmit={onSubmit}>
@@ -96,7 +96,7 @@ export default function LoginPage() {
           </form>
           <button
             type="button"
-            className="mt-4 w-full text-center text-sm font-semibold text-accent-600 hover:underline"
+            className="mt-4 w-full text-center text-sm font-semibold text-brand hover:underline"
             onClick={() => {
               setMode(mode === 'login' ? 'reset' : 'login')
               setError(null)
@@ -106,7 +106,7 @@ export default function LoginPage() {
             {mode === 'login' ? 'Forgot password?' : 'Back to sign in'}
           </button>
         </Card>
-        <p className="mt-6 text-center text-xs text-ink-500">
+        <p className="mt-6 text-center text-xs text-fg-subtle">
           Accounts are created by an administrator. Attendees do not need an account.
         </p>
       </div>

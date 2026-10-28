@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { Check, Link2, Share2, X } from 'lucide-react'
 import { copyText } from '../lib/clipboard'
 import { Button } from './ui'
+import type { Size, Variant } from './ui/buttonStyles'
 
 export function CopyButton({
   text,
@@ -8,12 +10,14 @@ export function CopyButton({
   variant = 'secondary',
   size = 'md',
   block,
+  className,
 }: {
   text: string
   label?: string
-  variant?: 'primary' | 'secondary' | 'ghost'
-  size?: 'sm' | 'md' | 'lg'
+  variant?: Variant
+  size?: Size
   block?: boolean
+  className?: string
 }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
   return (
@@ -21,6 +25,8 @@ export function CopyButton({
       variant={variant}
       size={size}
       block={block}
+      className={className}
+      icon={state === 'copied' ? Check : state === 'failed' ? X : Link2}
       onClick={async () => {
         const ok = await copyText(text)
         setState(ok ? 'copied' : 'failed')
@@ -30,6 +36,55 @@ export function CopyButton({
       <span aria-live="polite">
         {state === 'copied' ? 'Copied!' : state === 'failed' ? 'Copy failed' : label}
       </span>
+    </Button>
+  )
+}
+
+/** Opens the phone's share sheet (WhatsApp, SMS…); copies the link where sharing isn't available. */
+export function ShareButton({
+  url,
+  title,
+  text,
+  label = 'Share',
+  variant = 'secondary',
+  size = 'md',
+  block,
+  className,
+}: {
+  url: string
+  title: string
+  text?: string
+  label?: string
+  variant?: Variant
+  size?: Size
+  block?: boolean
+  className?: string
+}) {
+  const [copied, setCopied] = useState(false)
+  async function onShare() {
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title, text, url })
+        return
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') return
+      }
+    }
+    if (await copyText(url)) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+  return (
+    <Button
+      variant={variant}
+      size={size}
+      block={block}
+      className={className}
+      icon={copied ? Check : Share2}
+      onClick={() => void onShare()}
+    >
+      <span aria-live="polite">{copied ? 'Link copied' : label}</span>
     </Button>
   )
 }

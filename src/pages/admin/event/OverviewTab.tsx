@@ -1,9 +1,10 @@
+import { Download, ExternalLink, QrCode } from 'lucide-react'
 import { useState } from 'react'
 import { registrationUrl } from '../../../lib/passToken'
 import { dataUrlToBlob, renderPassImage, safeFilename, saveImage } from '../../../lib/qr'
 import { formatEventDate } from '../../../lib/datetime'
 import type { EventRow, EventSummary } from '../../../lib/types'
-import { CopyButton } from '../../../components/CopyButton'
+import { CopyButton, ShareButton } from '../../../components/CopyButton'
 import { QrImage } from '../../../components/QrImage'
 import { useQrDataUrl } from '../../../components/useQrDataUrl'
 import { Alert, Button, Card, CardHeader, StatCard } from '../../../components/ui'
@@ -61,14 +62,14 @@ export function OverviewTab({ event, summary }: { event: EventRow; summary: Even
         />
       </div>
       <div
-        className="h-3 overflow-hidden rounded-full bg-ink-200"
+        className="h-3 overflow-hidden rounded-full bg-surface-strong"
         role="progressbar"
         aria-valuenow={pct}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label="Admission progress"
       >
-        <div className="h-full rounded-full bg-ok-600 transition-[width]" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-success transition-[width]" style={{ width: `${pct}%` }} />
       </div>
 
       <Card>
@@ -80,7 +81,7 @@ export function OverviewTab({ event, summary }: { event: EventRow; summary: Even
           <QrImage
             dataUrl={qr}
             alt={`Registration QR code for ${event.name}`}
-            className="mx-auto w-full max-w-[220px] ring-1 ring-ink-100"
+            className="mx-auto w-full max-w-[220px] ring-1 ring-line-soft"
           />
           <div className="min-w-0 space-y-3">
             {!shareable && (
@@ -91,26 +92,33 @@ export function OverviewTab({ event, summary }: { event: EventRow; summary: Even
               </Alert>
             )}
             <div
-              className="rounded-xl bg-ink-50 px-3 py-2.5 font-mono text-sm break-all ring-1 ring-ink-200"
+              className="rounded-control bg-surface-sunk px-3 py-2.5 font-mono text-sm break-all ring-1 ring-line"
               data-testid="registration-url"
             >
               {url}
             </div>
             <div className="flex flex-wrap gap-2">
+              <ShareButton
+                url={url}
+                title={event.name}
+                text={`Register for ${event.name}:`}
+                label="Share invite"
+                variant="primary"
+              />
               <CopyButton text={url} label="Copy link" />
-              <Button variant="secondary" onClick={downloadQr} loading={busy} disabled={!qr}>
+              <Button variant="secondary" icon={Download} onClick={downloadQr} loading={busy} disabled={!qr}>
                 Download QR poster
               </Button>
-              <Button variant="ghost" onClick={downloadPlainQr} disabled={!qr}>
+              <Button variant="ghost" icon={QrCode} onClick={downloadPlainQr} disabled={!qr}>
                 QR only (PNG)
               </Button>
               <a
-                className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-accent-600 hover:underline"
+                className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand hover:underline"
                 href={url}
                 target="_blank"
                 rel="noreferrer"
               >
-                Open page ↗
+                Open page <ExternalLink className="ml-1 size-4" aria-hidden="true" />
               </a>
             </div>
           </div>

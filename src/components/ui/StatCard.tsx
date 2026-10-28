@@ -13,17 +13,17 @@ export function StatCard({
   tone?: 'ok' | 'warn'
 }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-ink-200/70">
-      <p className="text-sm font-medium text-ink-500">{label}</p>
+    <div className="rounded-card bg-surface p-4 shadow-card ring-1 ring-line">
+      <p className="text-sm font-medium text-fg-subtle">{label}</p>
       <p
         className={cx(
           'mt-1 text-3xl font-bold tabular-nums tracking-tight',
-          tone === 'ok' ? 'text-ok-700' : tone === 'warn' ? 'text-warn-800' : 'text-ink-900',
+          tone === 'ok' ? 'text-success-fg' : tone === 'warn' ? 'text-warning-fg' : 'text-fg',
         )}
       >
         {value}
       </p>
-      {hint && <p className="mt-1 text-xs text-ink-500">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-fg-subtle">{hint}</p>}
     </div>
   )
 }

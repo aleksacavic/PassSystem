@@ -33,14 +33,14 @@ export function GoogleWalletButton({ token }: { token: string }) {
         onClick={onClick}
         disabled={busy}
         aria-busy={busy || undefined}
-        className="flex min-h-14 w-full items-center justify-center gap-3 rounded-full bg-black px-6 text-lg font-semibold text-white hover:bg-ink-800 disabled:opacity-60"
+        className="flex min-h-14 w-full items-center justify-center gap-3 rounded-full bg-black px-6 text-lg font-semibold text-white hover:bg-inverse-raised disabled:opacity-60"
         data-testid="google-wallet"
       >
         {busy ? <Spinner className="size-5" /> : <WalletGlyph />}
         Add to Google Wallet
       </button>
       {error && (
-        <p className="text-center text-sm text-bad-700" role="alert">
+        <p className="text-center text-sm text-danger-fg" role="alert">
           {error}
         </p>
       )}

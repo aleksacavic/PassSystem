@@ -29,6 +29,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
     "barcode-detector": "^3.2.3",
+    "lucide-react": "1.56.0",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

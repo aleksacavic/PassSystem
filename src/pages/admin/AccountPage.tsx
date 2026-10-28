@@ -38,7 +38,7 @@ export default function AccountPage() {
     <div className="max-w-lg">
       <PageHeader title="Account" />
       <Card className="mb-6 p-5">
-        <p className="text-sm text-ink-500">Signed in as</p>
+        <p className="text-sm text-fg-subtle">Signed in as</p>
         <p className="font-semibold break-all">{profile?.email}</p>
         <div className="mt-2">
           {isAdmin ? <Badge tone="accent">Administrator</Badge> : <Badge>Staff</Badge>}
@@ -49,7 +49,9 @@ export default function AccountPage() {
           {needsPassword ? 'Choose your password' : 'Change password'}
         </h2>
         {needsPassword && (
-          <p className="mt-1 text-sm text-ink-600">Set a password to finish activating your staff account.</p>
+          <p className="mt-1 text-sm text-fg-muted">
+            Set a password to finish activating your staff account.
+          </p>
         )}
         <form className="mt-4 space-y-4" onSubmit={onSubmit}>
           <Field label="New password" hint="At least 10 characters with letters and digits.">

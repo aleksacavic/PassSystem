@@ -41,7 +41,9 @@ export default function InvitePage() {
         <div className="mb-6 flex flex-col items-center text-center">
           <LogoMark className="size-12" />
           <h1 className="mt-3 text-2xl font-bold tracking-tight">You’re invited to PassSystem</h1>
-          <p className="mt-1 text-sm text-ink-600">Accept to join the event team and choose your password.</p>
+          <p className="mt-1 text-sm text-fg-muted">
+            Accept to join the event team and choose your password.
+          </p>
         </div>
         <Card className="space-y-4 p-5">
           {!token ? (
@@ -58,7 +60,7 @@ export default function InvitePage() {
               <Button block size="lg" loading={busy} onClick={onAccept}>
                 Accept invite
               </Button>
-              <p className="text-center text-xs text-ink-500">The link works once.</p>
+              <p className="text-center text-xs text-fg-subtle">The link works once.</p>
             </>
           )}
         </Card>

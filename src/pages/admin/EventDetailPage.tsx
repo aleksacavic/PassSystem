@@ -1,3 +1,4 @@
+import { Pencil, ScanLine, Send } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { getEvent, getEventSummaries, updateEvent } from '../../lib/api'
@@ -80,7 +81,7 @@ export default function EventDetailPage() {
     <div>
       <PageHeader
         back={
-          <Link to="/admin" className="text-sm font-semibold text-accent-600 hover:underline">
+          <Link to="/admin" className="text-sm font-semibold text-brand hover:underline">
             ← Events
           </Link>
         }
@@ -89,25 +90,29 @@ export default function EventDetailPage() {
           <span className="flex flex-wrap items-center gap-2">
             <EventStatusBadge status={event.status} />
             <span>{formatEventDate(event.starts_at, event.ends_at, event.timezone)}</span>
-            {event.location && <span className="text-ink-500">· {event.location}</span>}
+            {event.location && <span className="text-fg-subtle">· {event.location}</span>}
           </span>
         }
         actions={
           <>
             {event.status === 'draft' && (
-              <Button variant="success" onClick={publish} loading={publishing}>
+              <Button variant="success" icon={Send} onClick={publish} loading={publishing}>
                 Publish
               </Button>
             )}
-            <ButtonLink to={`/admin/events/${event.id}/edit`} variant="secondary">
+            <ButtonLink to={`/admin/events/${event.id}/edit`} variant="secondary" icon={Pencil}>
               Edit
             </ButtonLink>
-            {event.status !== 'archived' && <ButtonLink to={`/scan/${event.id}`}>Scan</ButtonLink>}
+            {event.status !== 'archived' && (
+              <ButtonLink to={`/scan/${event.id}`} icon={ScanLine}>
+                Scan
+              </ButtonLink>
+            )}
           </>
         }
       />
 
-      <div className="mb-5 flex gap-1 overflow-x-auto border-b border-ink-200" role="tablist">
+      <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -116,9 +121,7 @@ export default function EventDetailPage() {
             onClick={() => setParams(t.key === 'overview' ? {} : { tab: t.key }, { replace: true })}
             className={cx(
               '-mb-px border-b-2 px-3 py-2.5 text-sm font-semibold whitespace-nowrap',
-              tab === t.key
-                ? 'border-ink-900 text-ink-900'
-                : 'border-transparent text-ink-500 hover:text-ink-800',
+              tab === t.key ? 'border-fg text-fg' : 'border-transparent text-fg-subtle hover:text-fg',
             )}
           >
             {t.label}

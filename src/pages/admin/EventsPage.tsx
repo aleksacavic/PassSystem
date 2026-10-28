@@ -7,9 +7,10 @@ import { registrationUrl } from '../../lib/passToken'
 import { usePolling } from '../../lib/usePolling'
 import type { EventSummary } from '../../lib/types'
 import { PageHeader } from '../../components/AdminLayout'
-import { CopyButton } from '../../components/CopyButton'
+import { CopyButton, ShareButton } from '../../components/CopyButton'
 import { EventStatusBadge } from '../../components/StatusBadge'
-import { Alert, Badge, ButtonLink, Card, PageSpinner, Select } from '../../components/ui'
+import { Plus, ScanLine, Settings2 } from 'lucide-react'
+import { Alert, Badge, ButtonLink, Card, PageSpinner, SegmentedControl } from '../../components/ui'
 
 export default function EventsPage() {
   const { isAdmin } = useAuth()
@@ -40,19 +41,21 @@ export default function EventsPage() {
         description="Registrations and admissions update automatically."
         actions={
           <>
-            <div className="w-36">
-              <Select
-                aria-label="Filter events"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value as typeof filter)}
-                className="min-h-11 py-2"
-              >
-                <option value="active">Active</option>
-                <option value="archived">Archived</option>
-                <option value="all">All</option>
-              </Select>
-            </div>
-            {isAdmin && <ButtonLink to="/admin/events/new">Create event</ButtonLink>}
+            <SegmentedControl
+              label="Filter events"
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { value: 'active', label: 'Active' },
+                { value: 'archived', label: 'Archived' },
+                { value: 'all', label: 'All' },
+              ]}
+            />
+            {isAdmin && (
+              <ButtonLink to="/admin/events/new" icon={Plus}>
+                Create event
+              </ButtonLink>
+            )}
           </>
         }
       />
@@ -65,13 +68,13 @@ export default function EventsPage() {
       {events !== null && visible.length === 0 && (
         <Card className="p-8 text-center">
           <h2 className="text-lg font-semibold">No events</h2>
-          <p className="mt-1 text-ink-600">
+          <p className="mt-1 text-fg-muted">
             {isAdmin
               ? 'Create your first event to get a registration link and QR code.'
               : 'You are not assigned to any events yet. Ask an organizer to add you.'}
           </p>
           {isAdmin && (
-            <ButtonLink to="/admin/events/new" className="mt-4">
+            <ButtonLink to="/admin/events/new" icon={Plus} className="mt-4">
               Create event
             </ButtonLink>
           )}
@@ -88,6 +91,7 @@ export default function EventsPage() {
 
 function EventCard({ event }: { event: EventSummary }) {
   const canManage = event.my_role === 'admin' || event.my_role === 'organizer'
+  const shareable = event.status !== 'draft' && event.status !== 'archived'
   const remaining = Math.max(0, event.registered_count - event.checked_in_count)
   const pct = event.registered_count ? Math.round((event.checked_in_count / event.registered_count) * 100) : 0
   return (
@@ -103,10 +107,10 @@ function EventCard({ event }: { event: EventSummary }) {
               event.name
             )}
           </h2>
-          <p className="text-sm text-ink-600">
+          <p className="text-sm text-fg-muted">
             {formatEventDate(event.starts_at, event.ends_at, event.timezone)}
           </p>
-          {event.location && <p className="text-sm text-ink-500">{event.location}</p>}
+          {event.location && <p className="text-sm text-fg-subtle">{event.location}</p>}
         </div>
         <div className="flex flex-col items-end gap-1">
           <EventStatusBadge status={event.status} />
@@ -118,21 +122,30 @@ function EventCard({ event }: { event: EventSummary }) {
         <Stat label="Admitted" value={event.checked_in_count} />
         <Stat label="Remaining" value={remaining} />
       </dl>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink-100" aria-hidden="true">
-        <div className="h-full rounded-full bg-ok-600" style={{ width: `${pct}%` }} />
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-muted" aria-hidden="true">
+        <div className="h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {canManage && (
-          <ButtonLink to={`/admin/events/${event.id}`} variant="secondary" size="sm">
-            Manage
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        {event.status !== 'archived' && (
+          <ButtonLink to={`/scan/${event.id}`} size="sm" icon={ScanLine}>
+            Scan
           </ButtonLink>
         )}
-        {canManage && event.status !== 'draft' && event.status !== 'archived' && (
+        {canManage && shareable && (
+          <ShareButton
+            url={registrationUrl(event.slug)}
+            title={event.name}
+            text={`Register for ${event.name}:`}
+            label="Share invite"
+            size="sm"
+          />
+        )}
+        {canManage && shareable && (
           <CopyButton text={registrationUrl(event.slug)} label="Copy link" size="sm" />
         )}
-        {event.status !== 'archived' && (
-          <ButtonLink to={`/scan/${event.id}`} size="sm">
-            Scan
+        {canManage && (
+          <ButtonLink to={`/admin/events/${event.id}`} variant="secondary" size="sm" icon={Settings2}>
+            Manage
           </ButtonLink>
         )}
       </div>
@@ -142,8 +155,8 @@ function EventCard({ event }: { event: EventSummary }) {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl bg-ink-50 px-2 py-2">
-      <dt className="text-xs font-medium text-ink-500">{label}</dt>
+    <div className="rounded-control bg-surface-sunk px-2 py-2">
+      <dt className="text-xs font-medium text-fg-subtle">{label}</dt>
       <dd className="text-xl font-bold tabular-nums">{value}</dd>
     </div>
   )

@@ -1,0 +1,147 @@
+/*
+ * PassSystem design tokens: three layers, one file.
+ *
+ * 1. Primitives  (--palette-*): raw colour values. Never used by components.
+ * 2. Semantic    (--color-*, via @theme): what a colour means (surface, text,
+ *    line, brand, success, danger, warning). Pages and components use only these,
+ *    as Tailwind utilities: bg-surface, text-fg-muted, border-line, text-brand…
+ * 3. Component   (--radius-*, --shadow-*, --control-*, --nav-*): sizes, shapes
+ *    and per-component colours, also built from the semantic layer.
+ *
+ * To restyle the app, change layer 1 or 2 here. Don't add raw colours in JSX.
+ */
+
+/* ---------------------------------------------------------------- 1. primitives */
+:root {
+  --palette-ink-0: #ffffff;
+  --palette-ink-25: #fafafb;
+  --palette-ink-50: #f5f6f8;
+  --palette-ink-100: #eceef2;
+  --palette-ink-200: #dde0e6;
+  --palette-ink-300: #c3c7d0;
+  --palette-ink-400: #9096a3;
+  --palette-ink-500: #6a7080;
+  --palette-ink-600: #50566a;
+  --palette-ink-700: #3a3f50;
+  --palette-ink-800: #262a36;
+  --palette-ink-900: #161922;
+
+  --palette-blue-50: #eef3ff;
+  --palette-blue-100: #dce6ff;
+  --palette-blue-500: #3b6fe0;
+  --palette-blue-600: #2a58c4;
+  --palette-blue-700: #22479f;
+
+  --palette-green-50: #ecfdf3;
+  --palette-green-400: #4ade80;
+  --palette-green-100: #d1fadf;
+  --palette-green-600: #12873f;
+  --palette-green-700: #0b6e32;
+
+  --palette-red-50: #fef3f2;
+  --palette-red-100: #fee4e2;
+  --palette-red-600: #c8261b;
+  --palette-red-700: #a51c13;
+
+  --palette-amber-50: #fffaeb;
+  --palette-amber-100: #fef0c7;
+  --palette-amber-500: #f5a30b;
+  --palette-amber-600: #d68100;
+  --palette-amber-800: #7a4304;
+}
+
+/* ---------------------------------------------------------------- 2. semantic */
+/* static: every token is emitted as a CSS variable, so layer 3 can reference it */
+@theme static {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Surfaces, back to front */
+  --color-canvas: var(--palette-ink-50);
+  --color-surface: var(--palette-ink-0);
+  --color-surface-sunk: var(--palette-ink-50);
+  --color-surface-muted: var(--palette-ink-100);
+  --color-surface-strong: var(--palette-ink-200);
+  --color-overlay: rgb(22 25 34 / 0.5);
+
+  /* Text */
+  --color-fg: var(--palette-ink-900);
+  --color-fg-muted: var(--palette-ink-600);
+  --color-fg-subtle: var(--palette-ink-500);
+  --color-fg-faint: var(--palette-ink-400);
+  --color-fg-inverse: var(--palette-ink-0);
+
+  /* Lines */
+  --color-line-soft: var(--palette-ink-100);
+  --color-line: var(--palette-ink-200);
+  --color-line-strong: var(--palette-ink-300);
+
+  /* Primary action: the dark ink button */
+  --color-primary: var(--palette-ink-900);
+  --color-primary-hover: var(--palette-ink-700);
+  --color-primary-active: var(--palette-ink-800);
+  --color-on-primary: var(--palette-ink-0);
+
+  /* Brand: links, focus, the current page */
+  --color-brand: var(--palette-blue-600);
+  --color-brand-strong: var(--palette-blue-700);
+  --color-brand-bright: var(--palette-blue-500);
+  --color-brand-soft: var(--palette-blue-50);
+  --color-brand-muted: var(--palette-blue-100);
+
+  /* Door states. -soft: tinted background, -muted: ring/badge, -fg: text on soft */
+  --color-success: var(--palette-green-600);
+  --color-success-strong: var(--palette-green-700);
+  --color-success-soft: var(--palette-green-50);
+  --color-success-muted: var(--palette-green-100);
+  --color-success-fg: var(--palette-green-700);
+  --color-success-bright: var(--palette-green-400);
+
+  --color-danger: var(--palette-red-600);
+  --color-danger-strong: var(--palette-red-700);
+  --color-danger-soft: var(--palette-red-50);
+  --color-danger-muted: var(--palette-red-100);
+  --color-danger-fg: var(--palette-red-700);
+
+  --color-warning: var(--palette-amber-500);
+  --color-warning-strong: var(--palette-amber-600);
+  --color-warning-soft: var(--palette-amber-50);
+  --color-warning-muted: var(--palette-amber-100);
+  --color-warning-fg: var(--palette-amber-800);
+
+  --color-focus: var(--palette-blue-500);
+
+  /* Dark surfaces (scanner screen) and text on saturated door-state panels */
+  --color-inverse: var(--palette-ink-900);
+  --color-inverse-raised: var(--palette-ink-800);
+  --color-inverse-line: var(--palette-ink-600);
+  --color-on-inverse: var(--palette-ink-0);
+  --color-on-inverse-soft: var(--palette-ink-200);
+  --color-on-inverse-muted: var(--palette-ink-300);
+  --color-on-status: var(--palette-ink-0);
+  --color-scrim: rgb(22 25 34 / 0.85);
+
+  /* ------------------------------------------------------------ 3. component */
+  --radius-control: 0.75rem; /* buttons, inputs, selects */
+  --radius-card: 1rem;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 2px rgb(22 25 34 / 0.05), 0 1px 1px rgb(22 25 34 / 0.03);
+  --shadow-raised: 0 8px 24px -12px rgb(22 25 34 / 0.25);
+  --shadow-tabbar: 0 -1px 0 rgb(22 25 34 / 0.06), 0 -8px 24px -16px rgb(22 25 34 / 0.2);
+}
+
+:root {
+  /* Control heights (min-h-(--control-md)) */
+  --control-sm: 2.25rem;
+  --control-md: 2.75rem;
+  --control-lg: 3.5rem;
+  --control-input: 3rem;
+
+  /* Navigation */
+  --nav-height: 3.5rem;
+  --tabbar-height: 4rem;
+  --nav-active-bg: var(--color-brand-soft);
+  --nav-active-fg: var(--color-brand-strong);
+  --nav-idle-fg: var(--color-fg-muted);
+}

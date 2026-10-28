@@ -9,7 +9,7 @@ import {
 import { cx } from './cx'
 
 const control =
-  'block w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-base text-ink-900 shadow-sm ring-1 ring-inset ring-ink-200 placeholder:text-ink-400 focus:ring-2 focus:ring-inset focus:ring-accent-500 focus:outline-none disabled:bg-ink-100 disabled:text-ink-500 aria-invalid:ring-2 aria-invalid:ring-bad-600 min-h-12'
+  'block w-full rounded-control border-0 bg-surface px-3.5 py-2.5 text-base text-fg shadow-card ring-1 ring-inset ring-line placeholder:text-fg-faint focus:ring-2 focus:ring-inset focus:ring-brand-bright focus:outline-none disabled:bg-surface-muted disabled:text-fg-subtle aria-invalid:ring-2 aria-invalid:ring-danger min-h-(--control-input)'
 
 interface FieldProps {
   label: ReactNode
@@ -27,18 +27,18 @@ export function Field({ label, hint, error, optional, children, className }: Fie
   const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined
   return (
     <div className={cx('space-y-1.5', className)}>
-      <label htmlFor={id} className="flex items-baseline justify-between text-sm font-semibold text-ink-800">
+      <label htmlFor={id} className="flex items-baseline justify-between text-sm font-semibold text-fg">
         <span>{label}</span>
-        {optional && <span className="text-xs font-normal text-ink-500">Optional</span>}
+        {optional && <span className="text-xs font-normal text-fg-subtle">Optional</span>}
       </label>
       {children({ id, 'aria-describedby': describedBy, 'aria-invalid': error ? true : undefined })}
       {hint && !error && (
-        <p id={hintId} className="text-sm text-ink-500">
+        <p id={hintId} className="text-sm text-fg-subtle">
           {hint}
         </p>
       )}
       {error && (
-        <p id={errorId} className="text-sm font-medium text-bad-700" role="alert">
+        <p id={errorId} className="text-sm font-medium text-danger-fg" role="alert">
           {error}
         </p>
       )}

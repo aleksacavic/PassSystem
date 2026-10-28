@@ -1,3 +1,4 @@
+import { UserMinus, UserPlus } from 'lucide-react'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../../../auth/AuthProvider'
 import { addEventStaff, listEventStaff, removeEventStaff } from '../../../lib/api'
@@ -59,23 +60,23 @@ export function StaffTab({ event, isAdmin }: { event: EventRow; isAdmin: boolean
             <Spinner />
           </div>
         ) : staff.length === 0 ? (
-          <p className="p-6 text-center text-ink-500">
+          <p className="p-6 text-center text-fg-subtle">
             No staff assigned. Administrators always have access.
           </p>
         ) : (
-          <ul className="divide-y divide-ink-100">
+          <ul className="divide-y divide-line-soft">
             {staff.map((m) => (
               <li key={m.id} className="flex items-center justify-between gap-3 px-5 py-3">
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{m.display_name || m.email}</p>
-                  {m.display_name && <p className="truncate text-sm text-ink-500">{m.email}</p>}
+                  {m.display_name && <p className="truncate text-sm text-fg-subtle">{m.email}</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <Badge tone={m.role === 'organizer' ? 'accent' : 'neutral'}>
                     {m.role === 'organizer' ? 'Organizer' : 'Operator'}
                   </Badge>
                   {(isAdmin || m.role === 'operator') && m.user_id !== session?.user.id && (
-                    <Button variant="ghost" size="sm" className="text-bad-700" onClick={() => onRemove(m)}>
+                    <Button variant="danger-ghost" size="sm" icon={UserMinus} onClick={() => onRemove(m)}>
                       Remove
                     </Button>
                   )}
@@ -88,7 +89,7 @@ export function StaffTab({ event, isAdmin }: { event: EventRow; isAdmin: boolean
 
       <Card className="h-fit p-5">
         <h2 className="text-base font-semibold">Assign staff</h2>
-        <p className="mt-1 text-sm text-ink-600">
+        <p className="mt-1 text-sm text-fg-muted">
           The person must already have a staff account. Administrators create accounts.
         </p>
         <form className="mt-4 space-y-4" onSubmit={onAdd}>
@@ -113,7 +114,7 @@ export function StaffTab({ event, isAdmin }: { event: EventRow; isAdmin: boolean
             )}
           </Field>
           {error && <Alert tone="bad">{error}</Alert>}
-          <Button type="submit" loading={busy} block>
+          <Button type="submit" icon={UserPlus} loading={busy} block>
             Assign
           </Button>
         </form>

@@ -140,7 +140,7 @@ export default function RegisterPage() {
       <PublicLayout>
         <Card className="p-6 text-center">
           <h1 className="text-xl font-bold">{load.notFound ? 'Event not found' : 'Something went wrong'}</h1>
-          <p className="mt-2 text-ink-600">
+          <p className="mt-2 text-fg-muted">
             {load.notFound
               ? 'Check that the link is correct. The event may not be published yet.'
               : load.message}
@@ -163,7 +163,7 @@ export default function RegisterPage() {
       <div className="space-y-5">
         <EventInfo event={event} />
         {event.description && (
-          <p className="text-[15px] leading-relaxed whitespace-pre-line text-ink-700">{event.description}</p>
+          <p className="text-[15px] leading-relaxed whitespace-pre-line text-fg">{event.description}</p>
         )}
 
         {existing.length > 0 && (
@@ -192,7 +192,7 @@ export default function RegisterPage() {
         {open && (
           <Card className="p-5">
             <h2 className="text-lg font-semibold">Register</h2>
-            <p className="mt-1 text-sm text-ink-600">
+            <p className="mt-1 text-sm text-fg-muted">
               Enter your name to receive your personal entry pass. No account needed.
             </p>
             <form className="mt-5 space-y-4" onSubmit={onSubmit} noValidate>
@@ -268,13 +268,13 @@ export default function RegisterPage() {
               {event.terms_required && event.terms_text && (
                 <div className="space-y-2">
                   <details
-                    className="rounded-xl bg-ink-50 ring-1 ring-ink-200 ring-inset"
+                    className="rounded-control bg-surface-sunk ring-1 ring-line ring-inset"
                     data-testid="terms"
                   >
                     <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
                       Read the attendance terms
                     </summary>
-                    <div className="max-h-72 overflow-y-auto border-t border-ink-200 px-4 py-3 text-sm leading-relaxed whitespace-pre-line text-ink-700">
+                    <div className="max-h-72 overflow-y-auto border-t border-line px-4 py-3 text-sm leading-relaxed whitespace-pre-line text-fg">
                       {event.terms_text}
                     </div>
                   </details>
@@ -282,7 +282,7 @@ export default function RegisterPage() {
                     <input
                       id="accept-terms"
                       type="checkbox"
-                      className="mt-0.5 size-5 shrink-0 rounded border-ink-300 accent-ink-900"
+                      className="mt-0.5 size-5 shrink-0 rounded border-line-strong accent-primary"
                       checked={acceptTerms}
                       aria-invalid={errors.terms ? true : undefined}
                       aria-describedby={errors.terms ? 'accept-terms-error' : undefined}
@@ -294,7 +294,7 @@ export default function RegisterPage() {
                     <span>I have read and accept the attendance terms.</span>
                   </label>
                   {errors.terms && (
-                    <p id="accept-terms-error" className="text-sm font-medium text-bad-700" role="alert">
+                    <p id="accept-terms-error" className="text-sm font-medium text-danger-fg" role="alert">
                       {errors.terms}
                     </p>
                   )}

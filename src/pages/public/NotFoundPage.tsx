@@ -7,8 +7,8 @@ export default function NotFoundPage() {
     <PublicLayout>
       <Card className="p-6 text-center">
         <h1 className="text-xl font-bold">Page not found</h1>
-        <p className="mt-2 text-ink-600">The link may be mistyped or no longer valid.</p>
-        <Link to="/" className="mt-4 inline-block font-semibold text-accent-600 underline">
+        <p className="mt-2 text-fg-muted">The link may be mistyped or no longer valid.</p>
+        <Link to="/" className="mt-4 inline-block font-semibold text-brand underline">
           Go to start page
         </Link>
       </Card>

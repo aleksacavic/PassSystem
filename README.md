@@ -245,3 +245,17 @@ CI (`.github/workflows/ci.yml`) runs all of the above on every push and pull req
   limited to trusted organizers).
 - The camera scanner is tested in Chromium with a simulated camera. Test on real iOS Safari and Android Chrome
   devices before the first event. See the checklist in `docs/CODEX_HANDOVER.md`.
+
+## Design tokens
+
+All colours, radii, shadows and control sizes live in `src/styles/tokens.css`, in three layers:
+
+1. **Primitives** (`--palette-*`): raw values, never used directly by components.
+2. **Semantic** (`--color-*`, exposed as Tailwind utilities): `bg-canvas`, `bg-surface`, `text-fg`,
+   `text-fg-muted`, `border-line`, `bg-primary`, `text-brand`, `bg-success-soft`, `text-danger-fg`…
+3. **Component** (`--radius-control`, `--radius-card`, `--shadow-card`, `--control-*`, `--nav-*`): shapes and
+   sizes used by `src/components/ui`.
+
+Pages use only semantic utilities and the shared components (`Button`, `IconButton`, `Card`, `Badge`, `Alert`,
+`SegmentedControl`, fields). Icons come from `lucide-react`. Raw hex values remain only where a brand or export
+requires them (Google Wallet button artwork, QR poster canvas).

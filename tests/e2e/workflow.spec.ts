@@ -355,7 +355,7 @@ test('administrator creates an invite link; the invitee accepts it without any e
   const email = `e2e-link-${randomUUID().slice(0, 8)}@passsystem.test`
   await page.getByLabel('Email').fill(email)
   await page.getByRole('button', { name: 'Create invite link' }).click()
-  await expect(page.getByText(`Invite link for ${email} is ready`)).toBeVisible()
+  await expect(page.getByTestId('invite-link')).toBeVisible()
   const link = await page.getByLabel(`Invite link for ${email}`).inputValue()
   expect(link).toMatch(/\/invite#token=/)
   await expect(page.getByRole('listitem').filter({ hasText: email })).toContainText('Invite pending')

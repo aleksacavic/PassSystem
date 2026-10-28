@@ -14,7 +14,8 @@ import { validateEmail } from '../../lib/validation'
 import { formatDateTime } from '../../lib/datetime'
 import type { Profile } from '../../lib/types'
 import { PageHeader } from '../../components/AdminLayout'
-import { CopyButton } from '../../components/CopyButton'
+import { CopyButton, ShareButton } from '../../components/CopyButton'
+import { Link2, Mail, ShieldCheck, ShieldOff, UserMinus, X } from 'lucide-react'
 import { Alert, Badge, Button, Card, Field, Input, Spinner } from '../../components/ui'
 
 export default function UsersPage() {
@@ -69,10 +70,11 @@ export default function UsersPage() {
     try {
       const res = await inviteStaff(email, inviteAdmin, delivery)
       if (res.link) setInviteLink({ email: res.email, link: res.link })
+      // A link is shown in its own box; only email invites need a message.
       setInviteDone(
         res.warning ??
           (res.link
-            ? `Invite link for ${res.email}${res.admin ? ' (administrator)' : ''} is ready. Send it to them yourself.`
+            ? null
             : `Invite sent to ${res.email}${res.admin ? ' as administrator' : ''}. They choose a password from the email link.`),
       )
       setInviteEmail('')
@@ -155,7 +157,7 @@ export default function UsersPage() {
       <div ref={inviteCardRef} className="scroll-mt-20">
         <Card className="mb-6 p-5">
           <h2 className="text-base font-semibold">Invite staff</h2>
-          <p className="mt-1 text-sm text-ink-600">
+          <p className="mt-1 text-sm text-fg-muted">
             They receive an email, choose a password, and can then be assigned to events from each event’s
             Staff tab.
           </p>
@@ -178,13 +180,13 @@ export default function UsersPage() {
               <input
                 id="invite-admin"
                 type="checkbox"
-                className="mt-0.5 size-5 rounded border-ink-300 accent-ink-900"
+                className="mt-0.5 size-5 rounded border-line-strong accent-primary"
                 checked={inviteAdmin}
                 onChange={(e) => setInviteAdmin(e.target.checked)}
               />
               <span>
                 <span className="font-semibold">Administrator</span>
-                <span className="block text-ink-500">
+                <span className="block text-fg-subtle">
                   Full access to every event, can create events and invite staff.
                 </span>
               </span>
@@ -193,7 +195,7 @@ export default function UsersPage() {
             {inviteDone && <Alert tone="ok">{inviteDone}</Alert>}
             {inviteLink && (
               <div
-                className="space-y-2 rounded-xl border border-ink-200 bg-ink-50 p-3"
+                className="space-y-2 rounded-control border border-line bg-surface-sunk p-3"
                 data-testid="invite-link"
               >
                 <label htmlFor="invite-link-url" className="text-sm font-semibold">
@@ -204,29 +206,19 @@ export default function UsersPage() {
                   readOnly
                   value={inviteLink.link}
                   onFocus={(e) => e.currentTarget.select()}
-                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 font-mono text-xs"
+                  className="w-full rounded-control border border-line bg-surface px-3 py-2 font-mono text-xs"
                 />
                 <div className="flex flex-wrap gap-2">
                   <CopyButton text={inviteLink.link} label="Copy link" size="sm" />
-                  {typeof navigator.share === 'function' && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() =>
-                        navigator
-                          .share({
-                            title: 'PassSystem invite',
-                            text: 'Your PassSystem staff invite:',
-                            url: inviteLink.link,
-                          })
-                          .catch(() => undefined)
-                      }
-                    >
-                      Share…
-                    </Button>
-                  )}
+                  <ShareButton
+                    url={inviteLink.link}
+                    title="PassSystem invite"
+                    text="Your PassSystem staff invite:"
+                    label="Share…"
+                    size="sm"
+                  />
                 </div>
-                <p className="text-xs text-ink-500">
+                <p className="text-xs text-fg-subtle">
                   Send it by WhatsApp, SMS or any chat. It works once and expires after the “Email OTP
                   expiration” time set in Supabase (1 hour by default). Anyone with the link can claim the
                   account, so send it only to that person.
@@ -234,7 +226,7 @@ export default function UsersPage() {
               </div>
             )}
             <div className="flex flex-wrap gap-2">
-              <Button type="submit" loading={inviting === 'email'} disabled={inviting !== null}>
+              <Button type="submit" icon={Mail} loading={inviting === 'email'} disabled={inviting !== null}>
                 Send invite email
               </Button>
               <Button
@@ -266,28 +258,50 @@ export default function UsersPage() {
             <Spinner />
           </div>
         ) : (
-          <ul className="divide-y divide-ink-100">
+          <ul className="divide-y divide-line-soft">
             {users.map((u) => (
-              <li key={u.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+              <li
+                key={u.id}
+                className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+              >
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{u.email}</p>
-                  <p className="text-xs text-ink-500">Added {formatDateTime(u.created_at)}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {u.is_admin ? <Badge tone="accent">Administrator</Badge> : <Badge>Staff</Badge>}
+                    {!u.confirmed_at && <Badge tone="warn">Invite pending</Badge>}
+                    <span className="text-xs text-fg-subtle">Added {formatDateTime(u.created_at)}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {!u.confirmed_at && <Badge tone="warn">Invite pending</Badge>}
-                  {u.is_admin ? <Badge tone="accent">Administrator</Badge> : <Badge>Staff</Badge>}
-                  {u.id !== session?.user.id && (u.confirmed_at || u.is_admin) && (
-                    <Button variant="ghost" size="sm" onClick={() => toggle(u)}>
-                      {u.is_admin ? 'Remove admin' : 'Make admin'}
-                    </Button>
-                  )}
+                <div className="-ml-2 flex flex-wrap items-center gap-1 sm:ml-0 sm:justify-end">
                   {!u.confirmed_at && u.email && (
-                    <Button variant="ghost" size="sm" loading={linking === u.id} onClick={() => linkFor(u)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={Link2}
+                      loading={linking === u.id}
+                      onClick={() => linkFor(u)}
+                    >
                       Invite link
                     </Button>
                   )}
+                  {u.id !== session?.user.id && (u.confirmed_at || u.is_admin) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={u.is_admin ? ShieldOff : ShieldCheck}
+                      onClick={() => toggle(u)}
+                    >
+                      {u.is_admin ? 'Remove admin' : 'Make admin'}
+                    </Button>
+                  )}
                   {u.id !== session?.user.id && !u.is_admin && (
-                    <Button variant="danger" size="sm" loading={removing === u.id} onClick={() => remove(u)}>
+                    <Button
+                      variant="danger-ghost"
+                      size="sm"
+                      icon={u.confirmed_at ? UserMinus : X}
+                      loading={removing === u.id}
+                      onClick={() => remove(u)}
+                    >
                       {u.confirmed_at ? 'Remove' : 'Cancel invite'}
                     </Button>
                   )}
@@ -298,7 +312,7 @@ export default function UsersPage() {
         )}
       </Card>
       {ipCheck && (
-        <p className="mt-4 text-xs text-ink-500" data-testid="ip-check">
+        <p className="mt-4 text-xs text-fg-subtle" data-testid="ip-check">
           Deployment check — rate limiting identifies clients by: <strong>{ipCheck.source}</strong>
           {ipCheck.source === 'cf-connecting-ip'
             ? ' (expected on Supabase Cloud)'
@@ -309,7 +323,7 @@ export default function UsersPage() {
             !ipCheck.trust_cf_connecting_ip &&
             ' (Cloudflare header present but not yet trusted)'}
           {' · '}
-          <button type="button" className="font-semibold text-accent-600 underline" onClick={runSpoofCheck}>
+          <button type="button" className="font-semibold text-brand underline" onClick={runSpoofCheck}>
             Test header spoofing
           </button>
           {spoof === 'running' && ' …'}

@@ -1,3 +1,4 @@
+import { Ban, Download, RefreshCw, RotateCcw } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import {
   listAllRegistrations,
@@ -120,7 +121,7 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
           </Select>
         </div>
         <div className="flex-1" />
-        <Button variant="secondary" onClick={exportCsv} loading={exporting}>
+        <Button variant="secondary" icon={Download} onClick={exportCsv} loading={exporting}>
           Export CSV
         </Button>
       </div>
@@ -133,12 +134,12 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
             <Spinner />
           </div>
         ) : data.rows.length === 0 ? (
-          <p className="p-8 text-center text-ink-500">No attendees match.</p>
+          <p className="p-8 text-center text-fg-subtle">No attendees match.</p>
         ) : (
           <>
             {/* Desktop table */}
             <table className="hidden w-full text-left text-sm md:table">
-              <thead className="bg-ink-50 text-xs font-semibold tracking-wide text-ink-500 uppercase">
+              <thead className="bg-surface-sunk text-xs font-semibold tracking-wide text-fg-subtle uppercase">
                 <tr>
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Contact</th>
@@ -148,23 +149,23 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-ink-100">
+              <tbody className="divide-y divide-line-soft">
                 {data.rows.map((r) => (
                   <tr key={r.id} data-testid="attendee-row">
                     <td className="px-4 py-3 font-semibold">
                       {r.first_name} {r.last_name}
                     </td>
-                    <td className="max-w-56 px-4 py-3 text-ink-600">
+                    <td className="max-w-56 px-4 py-3 text-fg-muted">
                       <div className="truncate">{r.email ?? (r.phone ? '' : '—')}</div>
                       {r.phone && <div className="truncate tabular-nums">{r.phone}</div>}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-ink-600">
+                    <td className="px-4 py-3 whitespace-nowrap text-fg-muted">
                       {formatDateTime(r.registered_at, event.timezone)}
                     </td>
                     <td className="px-4 py-3">
                       <RegistrationStatusBadge status={r.status} />
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-ink-600">
+                    <td className="px-4 py-3 whitespace-nowrap text-fg-muted">
                       {formatDateTime(r.checked_in_at, event.timezone)}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -175,7 +176,7 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
               </tbody>
             </table>
             {/* Mobile list */}
-            <ul className="divide-y divide-ink-100 md:hidden">
+            <ul className="divide-y divide-line-soft md:hidden">
               {data.rows.map((r) => (
                 <li key={r.id} className="space-y-1 px-4 py-3">
                   <div className="flex items-start justify-between gap-2">
@@ -184,9 +185,9 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
                     </p>
                     <RegistrationStatusBadge status={r.status} />
                   </div>
-                  {r.email && <p className="truncate text-sm text-ink-600">{r.email}</p>}
-                  {r.phone && <p className="truncate text-sm text-ink-600 tabular-nums">{r.phone}</p>}
-                  <p className="text-xs text-ink-500">
+                  {r.email && <p className="truncate text-sm text-fg-muted">{r.email}</p>}
+                  {r.phone && <p className="truncate text-sm text-fg-muted tabular-nums">{r.phone}</p>}
+                  <p className="text-xs text-fg-subtle">
                     Registered {formatDateTime(r.registered_at, event.timezone)}
                     {r.checked_in_at && ` · In ${formatDateTime(r.checked_in_at, event.timezone)}`}
                   </p>
@@ -202,7 +203,7 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
 
       {data && data.total > PAGE_SIZE && (
         <div className="flex items-center justify-between text-sm">
-          <span className="text-ink-600">
+          <span className="text-fg-muted">
             {data.total} attendees · page {page + 1} of {pages}
           </span>
           <div className="flex gap-2">
@@ -221,7 +222,7 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
         </div>
       )}
       {data && data.total <= PAGE_SIZE && data.total > 0 && (
-        <p className="text-sm text-ink-500">{data.total} attendees</p>
+        <p className="text-sm text-fg-subtle">{data.total} attendees</p>
       )}
 
       {action && (
@@ -252,16 +253,16 @@ function RowActions({
     <div className="inline-flex gap-1">
       {reg.status === 'registered' && (
         <>
-          <Button variant="ghost" size="sm" onClick={() => onAction('reissue')}>
+          <Button variant="ghost" size="sm" icon={RefreshCw} onClick={() => onAction('reissue')}>
             Reissue
           </Button>
-          <Button variant="ghost" size="sm" className="text-bad-700" onClick={() => onAction('revoke')}>
+          <Button variant="danger-ghost" size="sm" icon={Ban} onClick={() => onAction('revoke')}>
             Revoke
           </Button>
         </>
       )}
       {reg.status === 'revoked' && (
-        <Button variant="ghost" size="sm" onClick={() => onAction('restore')}>
+        <Button variant="ghost" size="sm" icon={RotateCcw} onClick={() => onAction('restore')}>
           Restore
         </Button>
       )}
@@ -352,7 +353,7 @@ function ActionModal({
           <QrImage
             dataUrl={qr}
             alt={`New pass QR for ${name}`}
-            className="mx-auto max-w-60 ring-1 ring-ink-100"
+            className="mx-auto max-w-60 ring-1 ring-line-soft"
           />
           <p className="text-center font-mono text-sm">{formatPassToken(token)}</p>
           <div className="flex flex-wrap justify-center gap-2">
@@ -361,12 +362,12 @@ function ActionModal({
               href={url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-accent-600 hover:underline"
+              className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand hover:underline"
             >
               Open pass ↗
             </a>
           </div>
-          <p className="text-center text-xs text-ink-500">{event.name}</p>
+          <p className="text-center text-xs text-fg-subtle">{event.name}</p>
         </div>
       )}
       {error && (

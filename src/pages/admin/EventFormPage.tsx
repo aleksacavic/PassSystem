@@ -1,3 +1,4 @@
+import { RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { createEvent, deleteEvent, getDefaultEventTerms, getEvent, updateEvent } from '../../lib/api'
@@ -107,7 +108,7 @@ export default function EventFormPage() {
         back={
           <Link
             to={isNew ? '/admin' : `/admin/events/${id}`}
-            className="text-sm font-semibold text-accent-600 hover:underline"
+            className="text-sm font-semibold text-brand hover:underline"
           >
             ← Back
           </Link>
@@ -268,7 +269,7 @@ export default function EventFormPage() {
         <Card className="space-y-4 p-5">
           <div>
             <h2 className="text-base font-semibold">Attendance terms</h2>
-            <p className="mt-1 text-sm text-ink-600">
+            <p className="mt-1 text-sm text-fg-muted">
               Attendees must tick “I have read and accept the attendance terms” before they receive their
               pass. The text and time of acceptance are recorded with each registration.
             </p>
@@ -277,7 +278,7 @@ export default function EventFormPage() {
             <input
               id="terms-required"
               type="checkbox"
-              className="mt-0.5 size-5 rounded border-ink-300 accent-ink-900"
+              className="mt-0.5 size-5 rounded border-line-strong accent-primary"
               checked={form.termsRequired}
               onChange={(e) => set('termsRequired', e.target.checked)}
             />
@@ -300,7 +301,12 @@ export default function EventFormPage() {
             )}
           </Field>
           {defaultTerms && form.termsText !== defaultTerms && (
-            <Button variant="secondary" size="sm" onClick={() => set('termsText', defaultTerms)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={RotateCcw}
+              onClick={() => set('termsText', defaultTerms)}
+            >
               Reset to default text
             </Button>
           )}
@@ -312,7 +318,7 @@ export default function EventFormPage() {
             {isNew ? 'Create event' : 'Save changes'}
           </Button>
           {!isNew && isAdmin && (
-            <Button variant="ghost" className="text-bad-700" onClick={onDelete}>
+            <Button variant="danger-ghost" icon={Trash2} onClick={onDelete}>
               Delete event
             </Button>
           )}

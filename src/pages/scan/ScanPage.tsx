@@ -1,3 +1,4 @@
+import { AlertTriangle, Check, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
 import { admitPass, getEventSummaries, type AdmitOutcome } from '../../lib/api'
@@ -32,26 +33,26 @@ function EventPicker() {
   return (
     <div className="mx-auto max-w-lg">
       <h1 className="mb-1 text-2xl font-bold tracking-tight">Scan passes</h1>
-      <p className="mb-5 text-ink-600">Select the event you are admitting people to.</p>
+      <p className="mb-5 text-fg-muted">Select the event you are admitting people to.</p>
       {error && <Alert tone="bad">{error}</Alert>}
       {!events && !error && <PageSpinner />}
       {events?.length === 0 && (
-        <Card className="p-6 text-center text-ink-600">You are not assigned to any active events.</Card>
+        <Card className="p-6 text-center text-fg-muted">You are not assigned to any active events.</Card>
       )}
       <div className="space-y-3">
         {events?.map((e) => (
           <Link
             key={e.id}
             to={`/scan/${e.id}`}
-            className="block rounded-2xl bg-white p-4 shadow-sm ring-1 ring-ink-200/70 hover:ring-ink-400"
+            className="block rounded-card bg-surface p-4 shadow-card ring-1 ring-line/70 hover:ring-line-strong"
             data-testid="scan-event-option"
           >
             <div className="flex items-start justify-between gap-2">
               <p className="text-lg font-semibold">{e.name}</p>
               <EventStatusBadge status={e.status} />
             </div>
-            <p className="text-sm text-ink-600">{formatEventDate(e.starts_at, e.ends_at, e.timezone)}</p>
-            <p className="mt-1 text-sm text-ink-500">
+            <p className="text-sm text-fg-muted">{formatEventDate(e.starts_at, e.ends_at, e.timezone)}</p>
+            <p className="mt-1 text-sm text-fg-subtle">
               {e.checked_in_count} of {e.registered_count} admitted
             </p>
           </Link>
@@ -235,19 +236,19 @@ function Scanner({ eventId }: { eventId: string }) {
     <div className="mx-auto max-w-xl space-y-4">
       {/* Persistent event context */}
       <div
-        className="flex items-center justify-between gap-3 rounded-2xl bg-ink-900 px-4 py-3 text-white"
+        className="flex items-center justify-between gap-3 rounded-card bg-inverse px-4 py-3 text-on-inverse"
         data-testid="scan-event"
       >
         <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-wide text-ink-300 uppercase">Scanning for</p>
+          <p className="text-xs font-semibold tracking-wide text-on-inverse-muted uppercase">Scanning for</p>
           <p className="truncate text-lg font-bold">{event.name}</p>
-          <p className="text-xs text-ink-300">
+          <p className="text-xs text-on-inverse-muted">
             {event.checked_in_count} admitted · {remaining} to go
           </p>
         </div>
         <Link
           to="/scan"
-          className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-ink-200 ring-1 ring-ink-600 hover:bg-ink-800"
+          className="shrink-0 rounded-control px-3 py-2 text-sm font-semibold text-on-inverse-soft ring-1 ring-inverse-line hover:bg-inverse-raised"
         >
           Change
         </Link>
@@ -258,7 +259,7 @@ function Scanner({ eventId }: { eventId: string }) {
       )}
 
       {/* Camera */}
-      <div className="relative overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: '1 / 1' }}>
+      <div className="relative overflow-hidden rounded-card bg-black" style={{ aspectRatio: '1 / 1' }}>
         <video
           ref={videoRef}
           className="absolute inset-0 size-full object-cover"
@@ -276,7 +277,7 @@ function Scanner({ eventId }: { eventId: string }) {
           </div>
         )}
         {!running && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center text-white">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center text-on-inverse">
             {starting ? (
               <>
                 <Spinner className="size-8" />
@@ -285,9 +286,9 @@ function Scanner({ eventId }: { eventId: string }) {
             ) : (
               <>
                 {cameraError ? (
-                  <p className="max-w-xs text-sm text-ink-200">{cameraError}</p>
+                  <p className="max-w-xs text-sm text-on-inverse-soft">{cameraError}</p>
                 ) : (
-                  <p className="text-ink-200">Camera is off</p>
+                  <p className="text-on-inverse-soft">Camera is off</p>
                 )}
                 {cameraStatus !== 'unsupported' && (
                   <Button
@@ -352,8 +353,8 @@ function Scanner({ eventId }: { eventId: string }) {
             Check
           </Button>
         </form>
-        {manualError && <p className="mt-2 text-sm font-medium text-bad-700">{manualError}</p>}
-        <p className="mt-2 text-xs text-ink-500">
+        {manualError && <p className="mt-2 text-sm font-medium text-danger-fg">{manualError}</p>}
+        <p className="mt-2 text-xs text-fg-subtle">
           The code is printed under the attendee’s QR, e.g. ABCD-EFGH-…
         </p>
       </Card>
@@ -361,10 +362,10 @@ function Scanner({ eventId }: { eventId: string }) {
       {/* Session history */}
       {history.length > 0 && (
         <Card>
-          <h2 className="border-b border-ink-100 px-4 py-2.5 text-sm font-semibold text-ink-600">
+          <h2 className="border-b border-line-soft px-4 py-2.5 text-sm font-semibold text-fg-muted">
             Recent scans on this device
           </h2>
-          <ul className="divide-y divide-ink-100">
+          <ul className="divide-y divide-line-soft">
             {history.map((h) => (
               <li key={h.id} className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
                 <span className="truncate font-medium">{h.name}</span>
@@ -372,14 +373,14 @@ function Scanner({ eventId }: { eventId: string }) {
                   <span
                     className={cx(
                       'rounded-md px-2 py-0.5 text-xs font-bold',
-                      h.tone === 'ok' && 'bg-ok-100 text-ok-700',
-                      h.tone === 'bad' && 'bg-bad-100 text-bad-700',
-                      h.tone === 'warn' && 'bg-warn-100 text-warn-800',
+                      h.tone === 'ok' && 'bg-success-muted text-success-fg',
+                      h.tone === 'bad' && 'bg-danger-muted text-danger-fg',
+                      h.tone === 'warn' && 'bg-warning-muted text-warning-fg',
                     )}
                   >
                     {h.label}
                   </span>
-                  <span className="text-xs text-ink-500 tabular-nums">{h.time}</span>
+                  <span className="text-xs text-fg-subtle tabular-nums">{h.time}</span>
                 </span>
               </li>
             ))}
@@ -408,7 +409,7 @@ function ResultOverlay({
   if (view.kind === 'checking') {
     return (
       <div
-        className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-3 bg-ink-900/85 px-4 py-5 text-lg font-semibold text-white"
+        className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-3 bg-scrim px-4 py-5 text-lg font-semibold text-white"
         role="status"
       >
         <Spinner className="size-6" /> Checking pass…
@@ -437,7 +438,7 @@ function ResultOverlay({
         <p className="mt-1 text-base opacity-90">Do not admit until the scan is confirmed.</p>
         <Button
           size="lg"
-          className="mt-4 bg-ink-900 text-white hover:bg-ink-800"
+          className="mt-4 bg-inverse text-on-inverse hover:bg-inverse-raised"
           onClick={(e) => {
             e.stopPropagation()
             onRetry()
@@ -508,9 +509,9 @@ function ResultPanel({
       onClick={onDismiss}
       className={cx(
         'absolute inset-0 flex cursor-pointer flex-col items-center justify-center p-6 text-center',
-        tone === 'ok' && 'bg-ok-600 text-white',
-        tone === 'bad' && 'bg-bad-600 text-white',
-        tone === 'warn' && 'bg-warn-500 text-ink-900',
+        tone === 'ok' && 'bg-success text-on-status',
+        tone === 'bad' && 'bg-danger text-on-status',
+        tone === 'warn' && 'bg-warning text-fg',
       )}
     >
       <ResultIcon tone={tone} />
@@ -522,25 +523,6 @@ function ResultPanel({
 }
 
 function ResultIcon({ tone }: { tone: 'ok' | 'bad' | 'warn' }) {
-  return (
-    <svg
-      viewBox="0 0 48 48"
-      className="size-16"
-      aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      {tone === 'ok' && <path d="M10 25l9 9 19-20" />}
-      {tone === 'bad' && <path d="M13 13l22 22M35 13L13 35" />}
-      {tone === 'warn' && (
-        <>
-          <path d="M24 12v15" />
-          <path d="M24 36h.01" />
-        </>
-      )}
-    </svg>
-  )
+  const Icon = tone === 'ok' ? Check : tone === 'bad' ? X : AlertTriangle
+  return <Icon className="size-16" strokeWidth={3} aria-hidden="true" />
 }

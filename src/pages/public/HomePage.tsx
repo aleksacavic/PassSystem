@@ -14,7 +14,7 @@ export default function HomePage() {
         <div className="flex flex-col items-center pt-6 text-center">
           <LogoMark className="size-14" />
           <h1 className="mt-4 text-2xl font-bold tracking-tight">PassSystem</h1>
-          <p className="mt-2 text-ink-600">
+          <p className="mt-2 text-fg-muted">
             Event registration and QR entry passes. To register, open the link or QR code shared by the event
             organizer.
           </p>
@@ -22,15 +22,15 @@ export default function HomePage() {
 
         {passes.length > 0 && (
           <Card>
-            <h2 className="border-b border-ink-100 px-5 py-3 text-base font-semibold">
+            <h2 className="border-b border-line-soft px-5 py-3 text-base font-semibold">
               Passes on this device
             </h2>
-            <ul className="divide-y divide-ink-100">
+            <ul className="divide-y divide-line-soft">
               {passes.map((p) => (
                 <li key={p.token}>
-                  <Link to={`/pass#${p.token}`} className="block px-5 py-3 hover:bg-ink-50">
+                  <Link to={`/pass#${p.token}`} className="block px-5 py-3 hover:bg-surface-sunk">
                     <p className="font-semibold">{p.eventName}</p>
-                    <p className="text-sm text-ink-600">
+                    <p className="text-sm text-fg-muted">
                       {p.attendeeName} · {formatEventDate(p.startsAt, null)}
                     </p>
                   </Link>
