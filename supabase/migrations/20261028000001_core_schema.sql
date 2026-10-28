@@ -162,7 +162,8 @@ insert into private.settings (key, value, description) values
   ('register_per_event_per_minute', 600, 'Registrations accepted for a single event per minute (flood ceiling).'),
   ('pass_lookup_per_ip_per_minute', 120, 'Pass page lookups from one client IP per minute.'),
   ('public_event_per_ip_per_minute', 300, 'Public event page lookups from one client IP per minute.'),
-  ('request_replay_window_minutes', 30, 'Window in which a repeated registration request id returns the same registration.');
+  ('request_replay_window_minutes', 30, 'Window in which a repeated registration request id returns the same registration.'),
+  ('trust_cf_connecting_ip', 1, '1 on Supabase Cloud (Cloudflare sets cf-connecting-ip). Set 0 when self-hosting without Cloudflare.');
 
 -- Install-specific secret used to pseudonymize client IPs in rate-limit buckets.
 create table private.app_secrets (

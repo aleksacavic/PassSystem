@@ -1,0 +1,264 @@
+/**
+ * Definition-of-done workflow, end to end in real browsers against the local
+ * Supabase stack:
+ *   organizer creates + publishes Event A -> attendee registers on a phone ->
+ *   operator on another phone scans the QR with the camera (green) -> scanning
+ *   again is rejected (red) -> Event B is separate and rejects Event A's pass ->
+ *   organizer inspects registrations/attendance and exports CSV.
+ */
+import { test, expect, chromium, devices, type Browser, type Page } from '@playwright/test'
+import { createClient } from '@supabase/supabase-js'
+import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { stackEnv } from '../integration/env'
+import { writeQrVideo } from './fakeCamera'
+
+const stack = stackEnv()
+const service = createClient(stack.apiUrl, stack.serviceKey, { auth: { persistSession: false } })
+const ART = join(process.cwd(), 'tests/e2e/.artifacts')
+const baseURL = 'http://127.0.0.1:4173'
+
+async function createUser(label: string, admin = false) {
+  const email = `${label}-${randomUUID().slice(0, 8)}@passsystem.test`
+  const password = `E2e-${randomUUID()}9`
+  const { data, error } = await service.auth.admin.createUser({ email, password, email_confirm: true })
+  if (error) throw error
+  if (admin) await service.from('profiles').update({ is_admin: true }).eq('id', data.user.id)
+  return { email, password, id: data.user.id }
+}
+
+const cspViolations: string[] = []
+function watchCsp(page: Page) {
+  page.on(
+    'console',
+    (m) => /Content Security Policy|Refused to/i.test(m.text()) && cspViolations.push(m.text()),
+  )
+  return page
+}
+
+async function signIn(page: Page, email: string, password: string) {
+  await page.goto('/login')
+  await page.getByLabel('Email').fill(email)
+  await page.getByLabel('Password').fill(password)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page).toHaveURL(/\/admin$/)
+}
+
+async function createEventViaUi(page: Page, name: string) {
+  await page.getByRole('link', { name: 'Create event' }).first().click()
+  await page.getByLabel('Event name').fill(name)
+  await page.getByLabel('Location').fill('Town Hall')
+  await page.getByLabel('Time zone').fill('Europe/Belgrade')
+  await page.getByLabel('Starts').fill('2026-12-01T19:00')
+  await page.getByRole('button', { name: 'Create event' }).click()
+  await expect(page).toHaveURL(/\/admin\/events\/[0-9a-f-]{36}$/)
+  // Created as draft: publish from the event page.
+  await page.getByRole('button', { name: 'Publish' }).click()
+  await expect(page.getByText('Published', { exact: true })).toBeVisible()
+  const url = (await page.getByTestId('registration-url').innerText()).trim()
+  const id = page.url().split('/').pop()!
+  return { url, id }
+}
+
+let organizer: { email: string; password: string; id: string }
+let operator: { email: string; password: string; id: string }
+
+test.beforeAll(async () => {
+  organizer = await createUser('e2e-organizer', true)
+  operator = await createUser('e2e-operator')
+})
+
+test('organizer → attendee → operator camera scan → event isolation → reporting', async ({ browser }) => {
+  // ---------------------------------------------------------------- organizer
+  const orgCtx = await browser.newContext({ baseURL })
+  const org = watchCsp(await orgCtx.newPage())
+  await signIn(org, organizer.email, organizer.password)
+  const suffix = randomUUID().slice(0, 6)
+  const eventA = await createEventViaUi(org, `Event A ${suffix}`)
+  expect(eventA.url).toMatch(new RegExp(`/e/event-a-${suffix}$`))
+
+  // Assign the operator to Event A through the Staff tab.
+  await org.getByRole('tab', { name: 'Staff' }).click()
+  await org.getByLabel('Staff email').fill(operator.email)
+  await org.getByRole('button', { name: 'Assign' }).click()
+  await expect(org.getByText(operator.email)).toBeVisible()
+
+  // ---------------------------------------------------------------- attendee
+  const phone = await browser.newContext({ ...devices['iPhone 13'], baseURL })
+  const att = watchCsp(await phone.newPage())
+  await att.goto(eventA.url)
+  await expect(att.getByRole('heading', { name: `Event A ${suffix}` })).toBeVisible()
+  await att.getByLabel('First name').fill('Ana')
+  await att.getByLabel('Last name').fill('Petrović')
+  await att.getByRole('button', { name: 'Register' }).click()
+  await expect(att).toHaveURL(/\/pass#[0-9A-Z]{24}$/)
+  await expect(att.getByText('You are registered!')).toBeVisible()
+  await expect(att.getByTestId('pass-name')).toHaveText('Ana Petrović')
+  await expect(att.getByRole('img', { name: /Entry QR code/ })).toBeVisible()
+  const passUrl = att.url()
+  const code = (await att.getByTestId('pass-code').innerText()).trim()
+
+  // Saved pass link reopens on another device.
+  const other = await (await browser.newContext({ baseURL })).newPage()
+  await other.goto(passUrl)
+  await expect(other.getByTestId('pass-name')).toHaveText('Ana Petrović')
+  await expect(other.getByText('Registered', { exact: true })).toBeVisible()
+
+  // ------------------------------------------- operator, second phone, camera
+  const video = writeQrVideo(passUrl, join(ART, `pass-${suffix}.y4m`))
+  const camBrowser: Browser = await chromium.launch({
+    args: [
+      '--use-fake-ui-for-media-stream',
+      '--use-fake-device-for-media-stream',
+      `--use-file-for-fake-video-capture=${video}`,
+    ],
+  })
+  try {
+    const opCtx = await camBrowser.newContext({ ...devices['Pixel 7'], baseURL, permissions: ['camera'] })
+    const op = watchCsp(await opCtx.newPage())
+    await signIn(op, operator.email, operator.password)
+    await op.getByRole('link', { name: 'Scan', exact: true }).click()
+    await expect(op.getByTestId('scan-event-option')).toHaveCount(1) // only assigned event
+    await op.getByTestId('scan-event-option').click()
+    await expect(op.getByTestId('scan-event')).toContainText(`Event A ${suffix}`)
+
+    let admitCalls = 0
+    op.on('request', (r) => r.url().includes('/rpc/admit_pass') && admitCalls++)
+    await op.getByRole('button', { name: 'Start camera' }).click()
+
+    const ok = op.getByTestId('scan-result-ok')
+    await expect(ok).toBeVisible({ timeout: 20_000 })
+    await expect(ok).toContainText('ADMITTED')
+    await expect(op.getByTestId('scan-result-name')).toHaveText('Ana Petrović')
+
+    // The QR stays in front of the camera: no repeated backend requests.
+    await op.waitForTimeout(5000)
+    expect(admitCalls).toBe(1)
+
+    // Present the same pass again after it left the camera: rejected.
+    await op.getByRole('button', { name: 'Stop camera' }).click()
+    await op.waitForTimeout(3500)
+    await op.getByRole('button', { name: 'Start camera' }).click()
+    const bad = op.getByTestId('scan-result-bad')
+    await expect(bad).toBeVisible({ timeout: 20_000 })
+    await expect(bad).toContainText('ALREADY USED')
+    await expect(bad).toContainText('Ana Petrović')
+    expect(admitCalls).toBe(2)
+
+    // Operator cannot administer the event.
+    await op.goto(`/admin/events/${eventA.id}`)
+    await expect(op.getByText('Operator access')).toBeVisible()
+    await expect(op.getByRole('tab', { name: 'Attendees' })).toHaveCount(0)
+    await opCtx.close()
+  } finally {
+    await camBrowser.close()
+  }
+
+  // Attendee's pass page now shows it was used.
+  await att.reload()
+  await expect(att.getByText(/This pass was used for entry/)).toBeVisible()
+
+  // ---------------------------------------------------------- Event B isolation
+  await org.goto('/admin')
+  const eventB = await createEventViaUi(org, `Event B ${suffix}`)
+  await att.goto(eventB.url)
+  await att.getByLabel('First name').fill('Marko')
+  await att.getByLabel('Last name').fill('Marković')
+  await att.getByLabel('Email').fill('marko@example.org')
+  await att.getByRole('button', { name: 'Register' }).click()
+  await expect(att.getByTestId('pass-name')).toHaveText('Marko Marković')
+  const codeB = (await att.getByTestId('pass-code').innerText()).trim()
+
+  // Event A's pass cannot admit to Event B (manual entry fallback).
+  await org.goto(`/scan/${eventB.id}`)
+  await org.getByLabel('Pass code').fill(code)
+  await org.getByRole('button', { name: 'Check' }).click()
+  await expect(org.getByTestId('scan-result-bad')).toContainText('WRONG EVENT')
+  // Event B's own pass is admitted.
+  await org.getByLabel('Pass code').fill(codeB)
+  await org.getByRole('button', { name: 'Check' }).click()
+  await expect(org.getByTestId('scan-result-ok')).toContainText('Marko Marković')
+
+  // ----------------------------------------------------------------- reporting
+  await org.goto(`/admin/events/${eventA.id}?tab=attendees`)
+  await expect(org.getByTestId('attendee-row')).toHaveCount(1)
+  await expect(org.getByTestId('attendee-row')).toContainText('Ana Petrović')
+  await expect(org.getByTestId('attendee-row')).toContainText('Checked in')
+  const [download] = await Promise.all([
+    org.waitForEvent('download'),
+    org.getByRole('button', { name: 'Export CSV' }).click(),
+  ])
+  const csv = readFileSync(await download.path(), 'utf8')
+  expect(csv).toContain('Ana,Petrović')
+  expect(csv).toContain('checked_in')
+  expect(csv).not.toContain('Marko')
+
+  await org.goto(`/admin/events/${eventB.id}?tab=attendees`)
+  await expect(org.getByTestId('attendee-row')).toHaveCount(1)
+  await expect(org.getByTestId('attendee-row')).toContainText('Marko Marković')
+  await expect(org.getByTestId('attendee-row')).toContainText('marko@example.org')
+
+  await org.goto(`/admin/events/${eventA.id}`)
+  const stats = org.getByTestId('stats')
+  await expect(stats).toContainText('Registrations1')
+  await expect(stats).toContainText('Checked in1')
+  await expect(stats).toContainText('100%')
+
+  await org.goto(`/admin/events/${eventA.id}?tab=activity`)
+  await expect(org.getByText('Admitted', { exact: true })).toBeVisible()
+  await expect(org.getByText('Already used', { exact: true })).toBeVisible()
+
+  expect(cspViolations).toEqual([])
+})
+
+test('unauthenticated users are sent to sign-in for staff pages', async ({ page }) => {
+  for (const path of ['/admin', '/scan', '/admin/users', `/admin/events/${randomUUID()}`]) {
+    await page.goto(path)
+    await expect(page).toHaveURL(/\/login\?next=/)
+  }
+})
+
+test('scanner shows amber "not verified" when the server cannot be reached', async ({ page }) => {
+  await signIn(page, organizer.email, organizer.password)
+  const { data: ev } = await service
+    .from('events')
+    .insert({
+      name: 'Offline test',
+      slug: `offline-${randomUUID().slice(0, 6)}`,
+      starts_at: new Date(Date.now() + 864e5).toISOString(),
+      status: 'published',
+      created_by: organizer.id,
+    })
+    .select('id')
+    .single()
+  await service.from('event_staff').upsert({ event_id: ev!.id, user_id: organizer.id, role: 'organizer' })
+  await page.goto(`/scan/${ev!.id}`)
+  await page.route('**/rest/v1/rpc/admit_pass', (route) => route.abort('internetdisconnected'))
+  await page.getByLabel('Pass code').fill('ABCD-EFGH-JKMN-PQRS-TVWX-YZ01')
+  await page.getByRole('button', { name: 'Check' }).click()
+  const warn = page.getByTestId('scan-result-warn')
+  await expect(warn).toContainText('NOT VERIFIED')
+  await expect(warn).toContainText('Do not admit')
+  await expect(page.getByTestId('scan-result-ok')).toHaveCount(0)
+  // Retry once the network is back gives a definitive (here: invalid) answer.
+  await page.unroute('**/rest/v1/rpc/admit_pass')
+  await warn.getByRole('button', { name: 'Retry' }).click()
+  await expect(page.getByTestId('scan-result-bad')).toContainText('INVALID PASS')
+})
+
+test('scanner explains a denied camera permission and keeps manual entry', async ({ browser }) => {
+  const ctx = await browser.newContext({ baseURL, permissions: [] })
+  const page = await ctx.newPage()
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('denied', 'NotAllowedError'))
+  })
+  await signIn(page, organizer.email, organizer.password)
+  await page.goto('/scan')
+  const first = page.getByTestId('scan-event-option').first()
+  await first.click()
+  await page.getByRole('button', { name: 'Start camera' }).click()
+  await expect(page.getByText(/Camera permission was denied/)).toBeVisible()
+  await expect(page.getByLabel('Pass code')).toBeVisible()
+  await ctx.close()
+})

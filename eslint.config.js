@@ -8,6 +8,8 @@ export default tseslint.config(
   {
     ignores: [
       'dist',
+      'dist-e2e',
+      'tests/e2e/.artifacts',
       'coverage',
       'playwright-report',
       'test-results',

@@ -23,8 +23,17 @@ as $$
 $$;
 
 -- Best-effort client IP from the request headers forwarded by the API gateway.
-create function private.client_ip()
-returns text
+--
+-- Supabase Cloud sits behind Cloudflare, which overwrites `cf-connecting-ip`
+-- with the real client address, so it is trusted first (setting
+-- trust_cf_connecting_ip = 1). Self-hosted deployments without Cloudflare must
+-- set it to 0, because clients can send that header themselves. Next comes
+-- `x-real-ip` (set by the Kong gateway from the TCP peer) and finally the
+-- right-most X-Forwarded-For entry (appended by the nearest proxy). The
+-- left-most X-Forwarded-For entry is client-controlled and never used.
+-- Verify on a deployment with: select public.diagnose_client_ip(); (admin only)
+create function private.client_ip_info()
+returns jsonb
 language plpgsql
 stable
 security definer
@@ -32,7 +41,12 @@ set search_path = ''
 as $$
 declare
   v_headers jsonb;
+  v_cf text;
+  v_real text;
+  v_xff text;
+  v_xff_last text;
   v_ip text;
+  v_source text;
 begin
   begin
     v_headers := nullif(current_setting('request.headers', true), '')::jsonb;
@@ -40,16 +54,43 @@ begin
     v_headers := null;
   end;
   if v_headers is null then
-    return 'unknown';
+    return jsonb_build_object('ip', 'unknown', 'source', 'none');
   end if;
-  v_ip := coalesce(
-    nullif(btrim(v_headers ->> 'cf-connecting-ip'), ''),
-    nullif(btrim(split_part(v_headers ->> 'x-forwarded-for', ',', 1)), ''),
-    nullif(btrim(v_headers ->> 'x-real-ip'), ''),
-    'unknown'
+  v_cf := nullif(btrim(v_headers ->> 'cf-connecting-ip'), '');
+  v_real := nullif(btrim(v_headers ->> 'x-real-ip'), '');
+  v_xff := nullif(btrim(v_headers ->> 'x-forwarded-for'), '');
+  if v_xff is not null then
+    v_xff_last := nullif(btrim(regexp_replace(v_xff, '^.*,', '')), '');
+  end if;
+
+  if v_cf is not null and private.setting('trust_cf_connecting_ip', 1) = 1 then
+    v_ip := v_cf; v_source := 'cf-connecting-ip';
+  elsif v_real is not null then
+    v_ip := v_real; v_source := 'x-real-ip';
+  elsif v_xff_last is not null then
+    v_ip := v_xff_last; v_source := 'x-forwarded-for(last)';
+  else
+    v_ip := 'unknown'; v_source := 'none';
+  end if;
+
+  return jsonb_build_object(
+    'ip', left(v_ip, 64),
+    'source', v_source,
+    'cf_connecting_ip_present', v_cf is not null,
+    'x_real_ip', v_real,
+    'x_forwarded_for', v_xff
   );
-  return left(v_ip, 64);
 end;
+$$;
+
+create function private.client_ip()
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select private.client_ip_info() ->> 'ip';
 $$;
 
 -- Pseudonymous, salted identifier for the client IP (raw IPs are never stored).
@@ -810,6 +851,22 @@ begin
 end;
 $$;
 
+-- Deployment check: which header the rate limiter uses for the caller's IP.
+create function public.diagnose_client_ip()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if not private.is_admin() then
+    raise exception 'Not authorized' using errcode = '42501', hint = 'admin_required';
+  end if;
+  return private.client_ip_info();
+end;
+$$;
+
 -- Bootstrap: promote an existing auth user to administrator.
 -- Not exposed through the API; run from the SQL editor / psql as the owner:
 --   select private.bootstrap_admin('owner@example.com');
@@ -855,6 +912,7 @@ revoke all on function public.list_event_staff(uuid) from public, anon, authenti
 revoke all on function public.add_event_staff(uuid, text, public.staff_role) from public, anon, authenticated;
 revoke all on function public.remove_event_staff(uuid) from public, anon, authenticated;
 revoke all on function public.set_user_admin(uuid, boolean) from public, anon, authenticated;
+revoke all on function public.diagnose_client_ip() from public, anon, authenticated;
 
 -- Public attendee operations.
 grant execute on function public.get_public_event(text) to anon, authenticated;
@@ -871,6 +929,7 @@ grant execute on function public.list_event_staff(uuid) to authenticated;
 grant execute on function public.add_event_staff(uuid, text, public.staff_role) to authenticated;
 grant execute on function public.remove_event_staff(uuid) to authenticated;
 grant execute on function public.set_user_admin(uuid, boolean) to authenticated;
+grant execute on function public.diagnose_client_ip() to authenticated;
 
 -- Future objects in public must be granted explicitly.
 alter default privileges in schema public revoke execute on functions from public, anon, authenticated;

@@ -16,5 +16,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["vite.config.ts", "vitest.config.ts", "playwright.config.ts", "tests"]
+  "include": ["vite.config.ts", "vitest.config.ts", "playwright.config.ts", "security-headers.d.mts", "tests"]
 }
