@@ -28,6 +28,7 @@ export function GoogleWalletButton({ token }: { token: string }) {
 
   return (
     <div className="space-y-2">
+      {/* Google's brand guidelines fix this button to black and white (allowed in tokens.test.ts). */}
       <button
         type="button"
         onClick={onClick}

@@ -271,6 +271,13 @@ export async function listProfiles(): Promise<Profile[]> {
   return (data ?? []) as Profile[]
 }
 
+/** Administrators: ids of pending invites that will become administrators on acceptance. */
+export async function pendingAdminInvites(): Promise<Set<string>> {
+  const { data, error } = await supabase.rpc('pending_admin_invites')
+  if (error) fail(error)
+  return new Set((data as string[] | null) ?? [])
+}
+
 export async function setUserAdmin(userId: string, isAdmin: boolean): Promise<void> {
   const { error } = await supabase.rpc('set_user_admin', { p_user_id: userId, p_is_admin: isAdmin })
   if (error) fail(error)

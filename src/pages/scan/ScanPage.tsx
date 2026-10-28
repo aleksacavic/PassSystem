@@ -259,7 +259,7 @@ function Scanner({ eventId }: { eventId: string }) {
       )}
 
       {/* Camera */}
-      <div className="relative overflow-hidden rounded-card bg-black" style={{ aspectRatio: '1 / 1' }}>
+      <div className="relative overflow-hidden rounded-card bg-camera" style={{ aspectRatio: '1 / 1' }}>
         <video
           ref={videoRef}
           className="absolute inset-0 size-full object-cover"
@@ -273,7 +273,7 @@ function Scanner({ eventId }: { eventId: string }) {
             className="pointer-events-none absolute inset-0 flex items-center justify-center"
             aria-hidden="true"
           >
-            <div className="size-[68%] rounded-3xl border-4 border-white/85 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+            <div className="size-[68%] rounded-3xl border-4 border-camera-frame shadow-camera-mask" />
           </div>
         )}
         {!running && (
@@ -409,7 +409,7 @@ function ResultOverlay({
   if (view.kind === 'checking') {
     return (
       <div
-        className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-3 bg-scrim px-4 py-5 text-lg font-semibold text-white"
+        className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-3 bg-scrim px-4 py-5 text-lg font-semibold text-on-inverse"
         role="status"
       >
         <Spinner className="size-6" /> Checking pass…

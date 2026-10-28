@@ -140,27 +140,29 @@ Deno.serve(async (req) => {
     ? `${new URL(redirectTo!).origin}/invite#token=${encodeURIComponent(hashedToken!)}`
     : undefined
 
-  if (makeAdmin) {
-    // Granted once, by a database trigger, when the invite is accepted (email
-    // confirmed), so a mistyped address never becomes an administrator.
-    const flagRes = await fetch(`${url}/rest/v1/rpc/mark_pending_admin`, {
-      method: 'POST',
-      headers: serviceHeaders(supa),
-      body: JSON.stringify({ p_user_id: invitedId, p_invited_by: caller.id }),
+  // The latest invite decides the role of a pending account. Administrator
+  // rights are granted once, by a database trigger, when the invite is accepted
+  // (email confirmed), so a mistyped address never becomes an administrator.
+  const roleRes = await fetch(`${url}/rest/v1/rpc/set_pending_admin`, {
+    method: 'POST',
+    headers: serviceHeaders(supa),
+    body: JSON.stringify({ p_user_id: invitedId, p_admin: makeAdmin, p_invited_by: caller.id }),
+  })
+  const outcome = roleRes.ok ? ((await roleRes.json().catch(() => null)) as string | null) : null
+  if (!outcome || outcome === 'not_found') {
+    console.error('setting the invite role failed', roleRes.status, outcome)
+    return reply(200, {
+      ok: true,
+      user_id: invitedId,
+      email,
+      admin: false,
+      link,
+      warning: makeAdmin
+        ? 'Invite created, but administrator rights could not be prepared. Use "Make admin" after they accept.'
+        : 'Invite created, but its role could not be saved. Check the staff list before they accept.',
     })
-    if (!flagRes.ok) {
-      console.error('pending admin flag failed', flagRes.status)
-      return reply(200, {
-        ok: true,
-        user_id: invitedId,
-        email,
-        admin: false,
-        link,
-        warning:
-          'Invite created, but administrator rights could not be prepared. Use "Make admin" after they accept.',
-      })
-    }
   }
-
-  return reply(200, { ok: true, user_id: invitedId, email, admin: makeAdmin, link })
+  // What the account will actually be once the invite is accepted.
+  const admin = outcome === 'queued' || outcome === 'granted'
+  return reply(200, { ok: true, user_id: invitedId, email, admin, link })
 })

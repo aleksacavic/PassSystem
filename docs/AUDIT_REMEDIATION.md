@@ -88,3 +88,20 @@ Not changed: the public `google-wallet` function has no application-level rate l
 pass token and costs one signature per call. Revisit if Supabase usage shows abuse.
 
 Results after this remediation: unit 68 / 68, integration 108 / 108 (11 new regression tests), E2E 9 / 9.
+
+## Codex review 3 remediation (migration 008)
+
+Findings from `docs/CODEX_REVIEW_3.md`. Database fixes are in `supabase/migrations/20261028000008_review3_remediation.sql`; tests are in
+`tests/integration/review3-regressions.test.ts`, `src/components/ui/SegmentedControl.test.tsx` and `src/styles/tokens.test.ts`.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R3-01 | Medium | The 007 `BEFORE UPDATE` capacity-lock trigger is dropped, so event edits take no advisory lock. `register_for_event` re-reads the event `FOR SHARE` after the capacity lock: it waits for an in-flight edit and sees its result, and a later edit waits for the registration. `FOR SHARE` doesn't conflict with the `KEY SHARE` locks of admissions and other registrations. Tests: slug change against a held capacity lock, registration during an uncommitted slug change, archival in both orders. |
+| R3-02 | Medium | `mark_pending_admin` is replaced by `set_pending_admin(user, admin, invited_by)`. It locks the Auth user row first, which orders it against the confirming update. If the invite was accepted in the meantime, it grants the rights directly. It returns `queued`, `granted`, `cleared`, `unchanged` or `not_found`, and `invite-staff` reports the effective role from that. |
+| R3-03 | Medium | The latest invite decides the role: `invite-staff` sets or clears the pending promotion on every invite, email or link. The Staff page loads `pending_admin_invites()` (administrators only), shows **Admin invite** on such rows, and keeps that role when it creates a fresh link. |
+| R3-04 | Low | `SegmentedControl` is one Tab stop (roving `tabIndex`). Arrow keys move and select with wrap-around, Home/End jump to the ends. |
+| R3-05 | Low | Scanner colours use new tokens (`bg-camera`, `border-camera-frame`, `shadow-camera-mask`, `text-on-inverse`). `src/styles/tokens.test.ts` fails on raw palette utilities, arbitrary colour values or hex colours in components. The Google Wallet button is the one documented exception (brand artwork). |
+
+Rollout: apply 008, then deploy `invite-staff` right away, because 008 drops `mark_pending_admin`, which the previous function version calls. Then deploy the frontend (it calls `pending_admin_invites`). 008 doesn't change the `register_for_event` signature, so open registration pages keep working.
+
+Results after this remediation: unit 72 / 72, integration 116 / 116, E2E 9 / 9.

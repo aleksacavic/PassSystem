@@ -6,6 +6,7 @@ import {
   inviteStaff,
   publicSignupEnabled,
   listProfiles,
+  pendingAdminInvites,
   removeStaffAccount,
   setUserAdmin,
   type ClientIpDiagnosis,
@@ -36,9 +37,14 @@ export default function UsersPage() {
   const [signupOpen, setSignupOpen] = useState<boolean | null>(null)
   const [spoof, setSpoof] = useState<{ spoofable: boolean } | 'running' | 'failed' | null>(null)
 
+  const [pendingAdmins, setPendingAdmins] = useState<Set<string>>(new Set())
+
   const load = useCallback(() => {
-    listProfiles()
-      .then(setUsers)
+    Promise.all([listProfiles(), pendingAdminInvites()])
+      .then(([profiles, pending]) => {
+        setUsers(profiles)
+        setPendingAdmins(pending)
+      })
       .catch((e: Error) => setError(e.message))
   }, [])
   useEffect(load, [load])
@@ -96,10 +102,14 @@ export default function UsersPage() {
     setInviteLink(null)
     setLinking(u.id)
     try {
-      const res = await inviteStaff(u.email, false, 'link')
+      // Keeps the role of the pending invite (to change it, invite again from the form above).
+      const res = await inviteStaff(u.email, pendingAdmins.has(u.id), 'link')
       if (res.link) {
         setInviteLink({ email: res.email, link: res.link })
-        setInviteDone(`New invite link for ${res.email} is ready. Earlier links for them stop working.`)
+        setInviteDone(
+          res.warning ??
+            `New invite link for ${res.email}${res.admin ? ' (administrator)' : ''} is ready. Earlier links for them stop working.`,
+        )
         inviteCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
     } catch (err) {
@@ -158,8 +168,9 @@ export default function UsersPage() {
         <Card className="mb-6 p-5">
           <h2 className="text-base font-semibold">Invite staff</h2>
           <p className="mt-1 text-sm text-fg-muted">
-            They receive an email, choose a password, and can then be assigned to events from each event’s
-            Staff tab.
+            Send an invite email, or create a link to send yourself. They choose a password and can then be
+            assigned to events from each event’s Staff tab. Inviting someone whose invite is still pending
+            replaces it, with the role ticked here.
           </p>
           <form className="mt-4 space-y-4" onSubmit={(e) => onInvite(e)} noValidate>
             <Field label="Email">
@@ -267,7 +278,13 @@ export default function UsersPage() {
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{u.email}</p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    {u.is_admin ? <Badge tone="accent">Administrator</Badge> : <Badge>Staff</Badge>}
+                    {u.is_admin ? (
+                      <Badge tone="accent">Administrator</Badge>
+                    ) : !u.confirmed_at && pendingAdmins.has(u.id) ? (
+                      <Badge tone="accent">Admin invite</Badge>
+                    ) : (
+                      <Badge>Staff</Badge>
+                    )}
                     {!u.confirmed_at && <Badge tone="warn">Invite pending</Badge>}
                     <span className="text-xs text-fg-subtle">Added {formatDateTime(u.created_at)}</span>
                   </div>

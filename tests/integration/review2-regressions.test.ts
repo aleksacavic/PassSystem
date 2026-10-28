@@ -24,6 +24,19 @@ beforeAll(async () => {
   operator = await createStaff({ label: 'r2-op' })
 })
 
+/** Waits until a session whose query matches is blocked on a lock. */
+async function waitingOn(pattern: string) {
+  for (let i = 0; i < 60; i++) {
+    const rows = await db(
+      `select 1 from pg_stat_activity where wait_event_type = 'Lock' and query ilike $1`,
+      [pattern],
+    )
+    if (rows.length) return
+    await new Promise((r) => setTimeout(r, 50))
+  }
+  throw new Error(`nothing waiting for ${pattern}`)
+}
+
 const isAdmin = async (id: string) =>
   (await db<{ is_admin: boolean }>(`select is_admin from public.profiles where id = $1`, [id]))[0]!.is_admin
 
@@ -31,7 +44,7 @@ describe('[R2-01] administrator invites are single-use', () => {
   it('a demoted invitee is not re-promoted by a later email change', async () => {
     const { data } = await service.auth.admin.createUser({ email: `r2-inv-${uid()}@passsystem.test` })
     const id = data.user!.id
-    expect((await service.rpc('mark_pending_admin', { p_user_id: id })).error).toBeNull()
+    expect((await service.rpc('set_pending_admin', { p_user_id: id, p_admin: true })).error).toBeNull()
     await db(`update auth.users set email_confirmed_at = now() where id = $1`, [id]) // invite accepted
     expect(await isAdmin(id)).toBe(true)
     expect(await db(`select 1 from private.pending_admin_invites where user_id = $1`, [id])).toHaveLength(0)
@@ -47,7 +60,7 @@ describe('[R2-01] administrator invites are single-use', () => {
 
   it('only the service role can mark a pending administrator', async () => {
     const { data } = await service.auth.admin.createUser({ email: `r2-inv2-${uid()}@passsystem.test` })
-    const res = await admin.client.rpc('mark_pending_admin', { p_user_id: data.user!.id })
+    const res = await admin.client.rpc('set_pending_admin', { p_user_id: data.user!.id, p_admin: true })
     expect(res.error).not.toBeNull()
     expect(
       await db(`select 1 from private.pending_admin_invites where user_id = $1`, [data.user!.id]),
@@ -219,26 +232,12 @@ describe('[R2-06] event edits are ordered with registrations', () => {
   it('a registration queued behind an archival sees the archived event', async () => {
     const ev = await createEvent(admin.client)
     const version = await termsVersion(ev.slug)
-    const holder = new pg.Client({ connectionString: env.dbUrl })
     const archiver = new pg.Client({ connectionString: env.dbUrl })
-    await holder.connect()
     await archiver.connect()
     try {
-      await holder.query('begin')
-      await holder.query('select private.lock_event_capacity($1)', [ev.id])
-      const archival = archiver.query(`update public.events set status = 'archived' where id = $1`, [ev.id])
-      const waiting = async (pattern: string) => {
-        for (let i = 0; i < 50; i++) {
-          const rows = await db(
-            `select 1 from pg_stat_activity where wait_event_type = 'Lock' and query ilike $1`,
-            [pattern],
-          )
-          if (rows.length) return
-          await new Promise((r) => setTimeout(r, 50))
-        }
-        throw new Error(`nothing waiting for ${pattern}`)
-      }
-      await waiting("%status = 'archived'%")
+      // The archival is in flight (row locked, not committed) when the registration arrives.
+      await archiver.query('begin')
+      await archiver.query(`update public.events set status = 'archived' where id = $1`, [ev.id])
       // Builders are lazy: .then() sends the request now.
       const registration = anonClient()
         .rpc('register_for_event', {
@@ -249,14 +248,36 @@ describe('[R2-06] event edits are ordered with registrations', () => {
           p_terms_version: version,
         })
         .then((r) => r)
-      await waiting('%register_for_event%')
-      await holder.query('commit')
-      await archival
+      await waitingOn('%register_for_event%')
+      await archiver.query('commit')
       expect((await registration).data).toMatchObject({ ok: false, error: 'event_not_found' })
       expect(await db(`select 1 from public.registrations where event_id = $1`, [ev.id])).toHaveLength(0)
     } finally {
-      await holder.end()
       await archiver.end()
+    }
+  })
+
+  it('an edit waits for a registration that is already under way', async () => {
+    const ev = await createEvent(admin.client)
+    const registrar = new pg.Client({ connectionString: env.dbUrl })
+    const editor = new pg.Client({ connectionString: env.dbUrl })
+    await registrar.connect()
+    await editor.connect()
+    try {
+      // What register_for_event holds after its locks: capacity lock + shared event row.
+      await registrar.query('begin')
+      await registrar.query('select private.lock_event_capacity($1)', [ev.id])
+      await registrar.query('select 1 from public.events where id = $1 for share', [ev.id])
+      const archival = editor.query(`update public.events set status = 'archived' where id = $1`, [ev.id])
+      await waitingOn("%status = 'archived'%")
+      await registrar.query('commit')
+      await archival
+      expect((await db(`select status from public.events where id = $1`, [ev.id]))[0]).toEqual({
+        status: 'archived',
+      })
+    } finally {
+      await registrar.end()
+      await editor.end()
     }
   })
 

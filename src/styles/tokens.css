@@ -14,6 +14,7 @@
 /* ---------------------------------------------------------------- 1. primitives */
 :root {
   --palette-ink-0: #ffffff;
+  --palette-black: #000000;
   --palette-ink-25: #fafafb;
   --palette-ink-50: #f5f6f8;
   --palette-ink-100: #eceef2;
@@ -122,12 +123,18 @@
   --color-on-status: var(--palette-ink-0);
   --color-scrim: rgb(22 25 34 / 0.85);
 
+  /* Scanner camera view */
+  --color-camera: var(--palette-black);
+  --color-camera-frame: rgb(255 255 255 / 0.85);
+
   /* ------------------------------------------------------------ 3. component */
   --radius-control: 0.75rem; /* buttons, inputs, selects */
   --radius-card: 1rem;
   --radius-pill: 999px;
   --shadow-card: 0 1px 2px rgb(22 25 34 / 0.05), 0 1px 1px rgb(22 25 34 / 0.03);
   --shadow-raised: 0 8px 24px -12px rgb(22 25 34 / 0.25);
+  /* Darkens the camera image around the scan frame */
+  --shadow-camera-mask: 0 0 0 9999px rgb(0 0 0 / 0.35);
   --shadow-tabbar: 0 -1px 0 rgb(22 25 34 / 0.06), 0 -8px 24px -16px rgb(22 25 34 / 0.2);
 }
 
