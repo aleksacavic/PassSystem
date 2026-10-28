@@ -9,6 +9,7 @@ import HomePage from './pages/public/HomePage'
 import RegisterPage from './pages/public/RegisterPage'
 import PassPage from './pages/public/PassPage'
 import NotFoundPage from './pages/public/NotFoundPage'
+import RouteErrorPage from './pages/public/RouteErrorPage'
 
 // Staff-only code is split out so the attendee pages stay small on mobile networks.
 const LoginPage = lazy(() => import('./pages/admin/LoginPage'))
@@ -46,6 +47,7 @@ function StaffArea() {
 const router = createBrowserRouter([
   {
     element: <Root />,
+    errorElement: <RouteErrorPage />,
     children: [
       { path: '/', element: <HomePage /> },
       { path: '/e/:slug', element: <RegisterPage /> },

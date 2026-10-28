@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../../auth/AuthProvider'
 import {
+  checkCfHeaderSpoofable,
   diagnoseClientIp,
   inviteStaff,
+  publicSignupEnabled,
   listProfiles,
   setUserAdmin,
   type ClientIpDiagnosis,
@@ -23,6 +25,8 @@ export default function UsersPage() {
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [inviteDone, setInviteDone] = useState<string | null>(null)
+  const [signupOpen, setSignupOpen] = useState<boolean | null>(null)
+  const [spoof, setSpoof] = useState<{ spoofable: boolean } | 'running' | 'failed' | null>(null)
 
   const load = useCallback(() => {
     listProfiles()
@@ -34,7 +38,17 @@ export default function UsersPage() {
     diagnoseClientIp()
       .then(setIpCheck)
       .catch(() => undefined)
+    publicSignupEnabled().then(setSignupOpen)
   }, [])
+
+  async function runSpoofCheck() {
+    setSpoof('running')
+    try {
+      setSpoof(await checkCfHeaderSpoofable())
+    } catch {
+      setSpoof('failed')
+    }
+  }
 
   async function onInvite(e: FormEvent) {
     e.preventDefault()
@@ -77,6 +91,12 @@ export default function UsersPage() {
         title="Staff accounts"
         description="Everyone who can sign in. Assign people to events from each event’s Staff tab."
       />
+      {signupOpen && (
+        <Alert tone="bad" title="Public sign-up is switched on" className="mb-5">
+          Anyone can create an account. In Supabase, open Authentication → Sign In / Providers and turn off
+          “Allow new users to sign up”.
+        </Alert>
+      )}
       <Card className="mb-6 p-5">
         <h2 className="text-base font-semibold">Invite staff</h2>
         <p className="mt-1 text-sm text-ink-600">
@@ -139,8 +159,9 @@ export default function UsersPage() {
                   <p className="text-xs text-ink-500">Added {formatDateTime(u.created_at)}</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {!u.confirmed_at && <Badge tone="warn">Invite pending</Badge>}
                   {u.is_admin ? <Badge tone="accent">Administrator</Badge> : <Badge>Staff</Badge>}
-                  {u.id !== session?.user.id && (
+                  {u.id !== session?.user.id && (u.confirmed_at || u.is_admin) && (
                     <Button variant="ghost" size="sm" onClick={() => toggle(u)}>
                       {u.is_admin ? 'Remove admin' : 'Make admin'}
                     </Button>
@@ -159,6 +180,22 @@ export default function UsersPage() {
             : ipCheck.source === 'x-real-ip'
               ? ' (expected on the local stack; on Supabase Cloud expect cf-connecting-ip)'
               : ' — check your proxy configuration (see README).'}
+          {ipCheck.cf_connecting_ip_present &&
+            !ipCheck.trust_cf_connecting_ip &&
+            ' (Cloudflare header present but not yet trusted)'}
+          {' · '}
+          <button type="button" className="font-semibold text-accent-600 underline" onClick={runSpoofCheck}>
+            Test header spoofing
+          </button>
+          {spoof === 'running' && ' …'}
+          {spoof === 'failed' && ' — could not run the test.'}
+          {spoof && typeof spoof === 'object' && (
+            <span data-testid="spoof-result">
+              {spoof.spoofable
+                ? ' — FORGEABLE: clients can fake cf-connecting-ip here; it must not be trusted.'
+                : ' — safe: forged cf-connecting-ip values are replaced by the proxy.'}
+            </span>
+          )}
         </p>
       )}
     </div>

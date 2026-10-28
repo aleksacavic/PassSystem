@@ -26,6 +26,11 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
   const resumeOnVisibleRef = useRef(false)
   const onDetectRef = useRef(onDetect)
   const deviceIndexRef = useRef(0)
+  // Camera chosen with "Switch camera", reused when resuming after the page was hidden.
+  const deviceIdRef = useRef<string | undefined>(undefined)
+  // Bumped by every start/stop: a start that finishes after a newer start or a
+  // stop releases its stream instead of running a second decode loop.
+  const generationRef = useRef(0)
   const [status, setStatus] = useState<CameraStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [torchSupported, setTorchSupported] = useState(false)
@@ -81,10 +86,12 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
         setError('This browser does not support camera access. Use manual entry below.')
         return
       }
+      const generation = ++generationRef.current
       setStatus('starting')
       stopTracks()
+      let stream: MediaStream | null = null
       try {
-        const [detector, stream] = await Promise.all([
+        const [detector, obtained] = await Promise.all([
           getQrDetector(),
           navigator.mediaDevices.getUserMedia({
             audio: false,
@@ -93,6 +100,11 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
               : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
           }),
         ])
+        stream = obtained
+        if (generation !== generationRef.current) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
         detectorRef.current = detector
         setDetectorKind(detector.kind)
         streamRef.current = stream
@@ -102,6 +114,8 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
         video.setAttribute('playsinline', 'true')
         video.muted = true
         await video.play().catch(() => undefined)
+        if (generation !== generationRef.current) return
+        deviceIdRef.current = deviceId ?? stream.getVideoTracks()[0]?.getSettings().deviceId
 
         const track = stream.getVideoTracks()[0]
         const caps = (track?.getCapabilities?.() ?? {}) as TorchCapabilities
@@ -116,6 +130,10 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
         setStatus('running')
         loopRef.current()
       } catch (e) {
+        if (generation !== generationRef.current) {
+          stream?.getTracks().forEach((t) => t.stop())
+          return
+        }
         stopTracks()
         runningRef.current = false
         const name = (e as DOMException)?.name
@@ -142,6 +160,7 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
   )
 
   const stop = useCallback(() => {
+    generationRef.current++
     runningRef.current = false
     resumeOnVisibleRef.current = false
     stopTracks()
@@ -177,13 +196,14 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
   useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState === 'hidden' && runningRef.current) {
+        generationRef.current++
         resumeOnVisibleRef.current = true
         runningRef.current = false
         stopTracks()
         setStatus('idle')
       } else if (document.visibilityState === 'visible' && resumeOnVisibleRef.current) {
         resumeOnVisibleRef.current = false
-        void start()
+        void start(deviceIdRef.current)
       }
     }
     document.addEventListener('visibilitychange', onVisibility)

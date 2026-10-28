@@ -5,7 +5,7 @@ import { ApiError } from '../../lib/errors'
 import { formatDateTime, formatEventDate } from '../../lib/datetime'
 import { formatPassToken, normalizePassToken, passUrl } from '../../lib/passToken'
 import { renderPassImage, safeFilename, saveImage } from '../../lib/qr'
-import { forgetPass } from '../../lib/passStorage'
+import { forgetPass, loadPasses } from '../../lib/passStorage'
 import type { PassView, PublicEvent } from '../../lib/types'
 import { CopyButton } from '../../components/CopyButton'
 import { EventInfo } from '../../components/EventInfo'
@@ -48,6 +48,9 @@ function PassPage() {
   const [state, setState] = useState<State>(initial)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [storedHere, setStoredHere] = useState(() =>
+    Boolean(token && loadPasses().some((p) => p.token === token)),
+  )
   const url = token ? passUrl(token) : null
   const qr = useQrDataUrl(url)
 
@@ -226,6 +229,23 @@ function PassPage() {
         <p className="no-print text-center text-sm text-ink-500">
           This link is your personal pass. Do not share it with others.
         </p>
+        {storedHere && token && (
+          <div className="no-print text-center">
+            <button
+              type="button"
+              className="text-sm font-semibold text-accent-600 underline"
+              onClick={() => {
+                forgetPass(token)
+                setStoredHere(false)
+              }}
+            >
+              Remove this pass from this device
+            </button>
+            <p className="mt-1 text-xs text-ink-500">
+              Use this on a shared phone or tablet. Your pass stays valid.
+            </p>
+          </div>
+        )}
       </div>
     </PublicLayout>
   )

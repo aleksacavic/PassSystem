@@ -64,6 +64,15 @@ export function zonedInputToIso(value: string, timeZone: string): string | null 
   return new Date(ts).toISOString()
 }
 
+/**
+ * False for wall-clock times skipped by a daylight-saving change (e.g. 02:30 on
+ * the spring-forward night), which would otherwise be shifted silently.
+ */
+export function zonedInputExists(value: string, timeZone: string): boolean {
+  const iso = zonedInputToIso(value, timeZone)
+  return iso !== null && isoToZonedInput(iso, timeZone) === value.trim().slice(0, 16)
+}
+
 /** Format an ISO timestamp as a datetime-local value in `timeZone`. */
 export function isoToZonedInput(iso: string | null | undefined, timeZone: string): string {
   if (!iso) return ''

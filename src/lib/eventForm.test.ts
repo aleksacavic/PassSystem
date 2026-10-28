@@ -31,3 +31,16 @@ describe('validateEventForm', () => {
     expect(validateEventForm({ ...base, slug: 'Bad Slug' }).errors.slug).toBeTruthy()
   })
 })
+
+describe('daylight-saving gaps', () => {
+  it('rejects wall-clock times that do not exist', () => {
+    expect(validateEventForm({ ...base, startsAt: '2026-03-29T02:30' }).errors.startsAt).toMatch(
+      /does not exist/,
+    )
+    expect(
+      validateEventForm({ ...base, timezone: 'America/New_York', startsAt: '2026-03-08T02:30' }).errors
+        .startsAt,
+    ).toMatch(/does not exist/)
+    expect(validateEventForm({ ...base, startsAt: '2026-03-29T03:30' }).errors.startsAt).toBeUndefined()
+  })
+})

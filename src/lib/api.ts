@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { siteOrigin } from './env'
+import { env, siteOrigin } from './env'
 import { ApiError, describeError, errorCode, messageFor } from './errors'
 import type {
   AdmissionLog,
@@ -249,7 +249,7 @@ export async function registrationNames(ids: string[]): Promise<Map<string, stri
 export async function listProfiles(): Promise<Profile[]> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id,email,display_name,is_admin,created_at')
+    .select('id,email,display_name,is_admin,created_at,confirmed_at')
     .order('email', { ascending: true })
   if (error) fail(error)
   return (data ?? []) as Profile[]
@@ -295,7 +295,37 @@ export async function inviteStaff(email: string, admin: boolean): Promise<Invite
 
 export interface ClientIpDiagnosis {
   source: 'cf-connecting-ip' | 'x-real-ip' | 'x-forwarded-for(last)' | 'none'
+  trust_cf_connecting_ip?: boolean
   cf_connecting_ip_present?: boolean
+  cf_connecting_ip?: string | null
+}
+
+const SPOOF_PROBE_IP = '203.0.113.77'
+
+/**
+ * Admin-only deployment check: sends a forged cf-connecting-ip header and
+ * reports whether it reached the database unchanged. On Supabase Cloud,
+ * Cloudflare replaces it, so the header is safe to trust for rate limiting.
+ */
+export async function checkCfHeaderSpoofable(): Promise<{ spoofable: boolean; seen: string | null }> {
+  const { data, error } = await supabase
+    .rpc('diagnose_client_ip')
+    .setHeader('cf-connecting-ip', SPOOF_PROBE_IP)
+  if (error) fail(error)
+  const seen = (data as ClientIpDiagnosis).cf_connecting_ip ?? null
+  return { spoofable: seen === SPOOF_PROBE_IP, seen }
+}
+
+/** Whether public sign-up is enabled on the Supabase project (it should be off). */
+export async function publicSignupEnabled(): Promise<boolean | null> {
+  try {
+    const res = await fetch(`${env.supabaseUrl}/auth/v1/settings`, { headers: { apikey: env.supabaseKey } })
+    if (!res.ok) return null
+    const body = (await res.json()) as { disable_signup?: boolean }
+    return body.disable_signup === undefined ? null : !body.disable_signup
+  } catch {
+    return null
+  }
 }
 
 /** Admin-only: which request header the rate limiter uses as the client IP. */
@@ -317,12 +347,17 @@ export type AdmitOutcome =
  * server failures are reported as { kind: 'error' } so the UI can show the
  * amber retry state. Only a server response can produce an admission.
  */
-export async function admitPass(eventId: string, token: string, timeoutMs = 10_000): Promise<AdmitOutcome> {
+export async function admitPass(
+  eventId: string,
+  token: string,
+  attemptId: string,
+  timeoutMs = 10_000,
+): Promise<AdmitOutcome> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const { data, error } = await supabase
-      .rpc('admit_pass', { p_event_id: eventId, p_token: token })
+      .rpc('admit_pass', { p_event_id: eventId, p_token: token, p_attempt_id: attemptId })
       .abortSignal(controller.signal)
     if (error) {
       const code = errorCode(error)

@@ -4,13 +4,15 @@
 // servers, checks that the caller is a signed-in PassSystem administrator,
 // then uses the service-role key (provided to Edge Functions by Supabase) to
 // send a Supabase Auth invite. The invited person sets their own password from
-// the email link. Optionally grants administrator rights.
+// the email link. Optionally marks the invite as an administrator invite;
+// rights are applied when the invite is accepted.
 //
 // Request:  POST { "email": string, "admin"?: boolean, "redirectTo"?: string }
 // Response: 200 { ok: true, user_id, email, admin }
 //           4xx { ok: false, error: <code>, message }
-import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
-
+//
+// No third-party imports: the function talks to Supabase Auth and PostgREST
+// over HTTP, so it has nothing to download when it boots.
 const EMAIL_RE =
   /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/
 
@@ -29,6 +31,34 @@ function reply(status: number, body: Record<string, unknown>) {
 
 const fail = (status: number, error: string, message: string) => reply(status, { ok: false, error, message })
 
+interface Supa {
+  url: string
+  serviceKey: string
+}
+
+function serviceHeaders(s: Supa): Record<string, string> {
+  return { apikey: s.serviceKey, Authorization: `Bearer ${s.serviceKey}`, 'Content-Type': 'application/json' }
+}
+
+/** The signed-in caller, from their access token (null if invalid). */
+async function getCaller(s: Supa, jwt: string): Promise<{ id: string } | null> {
+  const res = await fetch(`${s.url}/auth/v1/user`, {
+    headers: { apikey: s.serviceKey, Authorization: `Bearer ${jwt}` },
+  })
+  if (!res.ok) return null
+  const user = (await res.json()) as { id?: string }
+  return user.id ? { id: user.id } : null
+}
+
+async function isAdmin(s: Supa, userId: string): Promise<boolean> {
+  const res = await fetch(`${s.url}/rest/v1/profiles?select=is_admin&id=eq.${encodeURIComponent(userId)}`, {
+    headers: serviceHeaders(s),
+  })
+  if (!res.ok) return false
+  const rows = (await res.json()) as { is_admin?: boolean }[]
+  return rows[0]?.is_admin === true
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return fail(405, 'method_not_allowed', 'Use POST.')
@@ -41,17 +71,13 @@ Deno.serve(async (req) => {
   const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
   if (!jwt) return fail(401, 'not_authenticated', 'Please sign in again.')
 
-  const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const supa: Supa = { url, serviceKey }
 
   // Who is calling, and are they an administrator?
-  const { data: caller, error: callerError } = await admin.auth.getUser(jwt)
-  if (callerError || !caller.user) return fail(401, 'not_authenticated', 'Please sign in again.')
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', caller.user.id)
-    .maybeSingle()
-  if (!profile?.is_admin) return fail(403, 'admin_required', 'Only administrators can invite staff.')
+  const caller = await getCaller(supa, jwt)
+  if (!caller) return fail(401, 'not_authenticated', 'Please sign in again.')
+  if (!(await isAdmin(supa, caller.id)))
+    return fail(403, 'admin_required', 'Only administrators can invite staff.')
 
   let body: { email?: unknown; admin?: unknown; redirectTo?: unknown }
   try {
@@ -75,43 +101,61 @@ Deno.serve(async (req) => {
     }
   }
 
-  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo,
-    data: { invited_by: caller.user.id },
+  const inviteUrl = new URL(`${url}/auth/v1/invite`)
+  if (redirectTo) inviteUrl.searchParams.set('redirect_to', redirectTo)
+  const inviteRes = await fetch(inviteUrl, {
+    method: 'POST',
+    headers: serviceHeaders(supa),
+    body: JSON.stringify({ email, data: { invited_by: caller.id } }),
   })
-  if (inviteError || !invited.user) {
-    const msg = inviteError?.message ?? ''
-    if (/already been registered|already registered|exists/i.test(msg)) {
+  const invited = (await inviteRes.json().catch(() => ({}))) as {
+    id?: string
+    code?: number
+    error_code?: string
+    msg?: string
+    message?: string
+  }
+  if (!inviteRes.ok || !invited.id) {
+    const msg = `${invited.error_code ?? ''} ${invited.msg ?? invited.message ?? ''}`
+    if (
+      inviteRes.status === 422 &&
+      /email_exists|already been registered|already registered|exists/i.test(msg)
+    ) {
       return fail(
         409,
         'user_exists',
         'This person already has an account. They can use "Forgot password" to sign in.',
       )
     }
-    if (/rate limit/i.test(msg)) {
+    if (inviteRes.status === 429 || /rate limit/i.test(msg)) {
       return fail(429, 'email_rate_limited', 'Too many invite emails were sent recently. Try again later.')
     }
-    console.error('invite failed', inviteError?.status, msg)
+    console.error('invite failed', inviteRes.status, msg)
     return fail(502, 'invite_failed', 'The invite email could not be sent. Try again later.')
   }
+  const invitedId = invited.id
 
   if (makeAdmin) {
-    // The profile row is created by the on_auth_user_created trigger during the invite.
-    const { error: adminError } = await admin
-      .from('profiles')
-      .update({ is_admin: true })
-      .eq('id', invited.user.id)
-    if (adminError) {
-      console.error('grant admin failed', adminError.message)
+    // Granted by a database trigger only once the invite is accepted (email
+    // confirmed), so a mistyped address never becomes an administrator.
+    // app_metadata can only be written with the service role.
+    const flagRes = await fetch(`${url}/auth/v1/admin/users/${invitedId}`, {
+      method: 'PUT',
+      headers: serviceHeaders(supa),
+      body: JSON.stringify({ app_metadata: { pending_admin: true } }),
+    })
+    if (!flagRes.ok) {
+      console.error('pending admin flag failed', flagRes.status)
       return reply(200, {
         ok: true,
-        user_id: invited.user.id,
+        user_id: invitedId,
         email,
         admin: false,
-        warning: 'Invite sent, but administrator rights could not be granted. Use "Make admin" in the list.',
+        warning:
+          'Invite sent, but administrator rights could not be prepared. Use "Make admin" after they accept.',
       })
     }
   }
 
-  return reply(200, { ok: true, user_id: invited.user.id, email, admin: makeAdmin })
+  return reply(200, { ok: true, user_id: invitedId, email, admin: makeAdmin })
 })

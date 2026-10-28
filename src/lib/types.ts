@@ -96,6 +96,8 @@ export interface AdmissionResponse {
   checked_in_at: string | null
   event: { id: string; name: string }
   scanned_at: string
+  /** True when this is the stored result of an earlier attempt with the same id (retry after timeout). */
+  replayed?: boolean
 }
 
 export interface StaffMember {
@@ -113,6 +115,8 @@ export interface Profile {
   display_name: string | null
   is_admin: boolean
   created_at: string
+  /** Null until the person accepts their invite (confirms their email). */
+  confirmed_at: string | null
 }
 
 export interface AdmissionLog {

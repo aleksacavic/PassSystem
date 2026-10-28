@@ -1,5 +1,9 @@
 # PassSystem: Test Results
 
+> **Update after audit #1 remediation:** unit 49/49, integration 79/79 (incl. 18 audit regression tests and 7
+> invite tests, now including the edge runtime and Mailpit), E2E 7/7, build and secret scan clean. See
+> [`AUDIT_REMEDIATION.md`](AUDIT_REMEDIATION.md). The sections below describe the original run.
+
 Run date: 2026-10-28 · Branch `claude/passsystem-implementation-h1i74q`
 
 ## Environment

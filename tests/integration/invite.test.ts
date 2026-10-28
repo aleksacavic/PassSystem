@@ -57,16 +57,43 @@ describe('invite-staff Edge Function', () => {
     expect(profile).toEqual({ is_admin: false })
   })
 
-  it('can invite an administrator', async () => {
+  it('an administrator invite takes effect only when the invite is accepted', async () => {
     const email = `inv-admin2-${uid()}@passsystem.test`
     const res = await invite(await tokenOf(admin), { email, admin: true })
     expect(res.status).toBe(200)
     expect(res.body?.admin).toBe(true)
-    const [profile] = await db(
-      `select p.is_admin from public.profiles p join auth.users u on u.id = p.id where u.email = $1`,
-      [email],
-    )
-    expect(profile).toEqual({ is_admin: true })
+    const adminFlag = async () =>
+      (
+        await db<{ is_admin: boolean }>(
+          `select p.is_admin from public.profiles p join auth.users u on u.id = p.id where u.email = $1`,
+          [email],
+        )
+      )[0]!.is_admin
+    expect(await adminFlag()).toBe(false) // a mistyped address never becomes admin
+    await db(`update auth.users set email_confirmed_at = now() where email = $1`, [email]) // invite accepted
+    expect(await adminFlag()).toBe(true)
+  })
+
+  it('an invited person cannot be assigned to events until they accept', async () => {
+    const email = `inv-assign-${uid()}@passsystem.test`
+    await invite(await tokenOf(admin), { email })
+    const ev = (
+      await admin.client
+        .from('events')
+        .insert({
+          name: 'Invite assign',
+          slug: `inv-${uid()}`,
+          starts_at: new Date(Date.now() + 864e5).toISOString(),
+        })
+        .select('id')
+        .single()
+    ).data!
+    const res = await admin.client.rpc('add_event_staff', {
+      p_event_id: ev.id,
+      p_email: email,
+      p_role: 'operator',
+    })
+    expect(res.error?.hint).toBe('user_not_confirmed')
   })
 
   it('reports existing accounts and invalid emails', async () => {

@@ -8,16 +8,21 @@ const EMAIL_RE =
 
 // eslint-disable-next-line no-control-regex
 const CONTROL_RE = /[\u0000-\u001f\u007f]/
+// Zero-width, bidi override/isolate, BOM and soft-hyphen characters.
+const INVISIBLE_RE = /[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u00AD]/
+const LETTER_OR_DIGIT_RE = /[\p{L}\p{N}]/u
 
 export function cleanName(value: string): string {
-  return value.replace(/\s+/g, ' ').trim()
+  return value.replace(/\s+/g, ' ').trim().normalize('NFC')
 }
 
 export function validateName(value: string, label: string): string | null {
   const v = cleanName(value)
   if (!v) return `${label} is required.`
   if (v.length > NAME_MAX) return `${label} must be at most ${NAME_MAX} characters.`
-  if (CONTROL_RE.test(value) || /[<>]/.test(v)) return `${label} contains characters that are not allowed.`
+  if (CONTROL_RE.test(value) || INVISIBLE_RE.test(v) || /[<>]/.test(v))
+    return `${label} contains characters that are not allowed.`
+  if (!LETTER_OR_DIGIT_RE.test(v)) return `${label} must contain at least one letter.`
   return null
 }
 

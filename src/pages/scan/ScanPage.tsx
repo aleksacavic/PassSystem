@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router'
 import { admitPass, getEventSummaries, type AdmitOutcome } from '../../lib/api'
 import { formatEventDate, formatTime } from '../../lib/datetime'
 import { extractPassToken } from '../../lib/passToken'
+import { randomUuid } from '../../lib/random'
 import type { EventSummary } from '../../lib/types'
 import { ScanGate } from '../../scanner/scanGate'
 import { feedback, unlockAudio } from '../../scanner/feedback'
@@ -13,7 +14,8 @@ import { EventStatusBadge } from '../../components/StatusBadge'
 
 export default function ScanPage() {
   const { eventId } = useParams()
-  return eventId ? <Scanner eventId={eventId} /> : <EventPicker />
+  // key: a different event gets a fresh scanner (no stale header, gate or history).
+  return eventId ? <Scanner key={eventId} eventId={eventId} /> : <EventPicker />
 }
 
 /* -------------------------------------------------------------- event list */
@@ -64,7 +66,7 @@ function EventPicker() {
 type View =
   | { kind: 'ready' }
   | { kind: 'checking' }
-  | { kind: 'outcome'; outcome: AdmitOutcome; token: string; at: number }
+  | { kind: 'outcome'; outcome: AdmitOutcome; token: string; attemptId: string; at: number }
   | { kind: 'not_a_pass'; at: number }
 
 interface HistoryItem {
@@ -116,15 +118,17 @@ function Scanner({ eventId }: { eventId: string }) {
   useEffect(refreshEvent, [refreshEvent])
 
   const submit = useCallback(
-    async (token: string) => {
+    // attemptId identifies one scan of one credential. Retry reuses it, so a
+    // retry after a timeout returns the server's original result.
+    async (token: string, attemptId: string) => {
       const now = Date.now()
       gate.current.begin(token, now)
       setView({ kind: 'checking' })
-      const outcome = await admitPass(eventId, token)
+      const outcome = await admitPass(eventId, token, attemptId)
       gate.current.end(token, Date.now())
       const tone = toneOf(outcome)
       feedback(tone, soundRef.current)
-      setView({ kind: 'outcome', outcome, token, at: Date.now() })
+      setView({ kind: 'outcome', outcome, token, attemptId, at: Date.now() })
       const name =
         outcome.kind === 'response' && outcome.response.attendee
           ? `${outcome.response.attendee.first_name} ${outcome.response.attendee.last_name}`
@@ -162,7 +166,7 @@ function Scanner({ eventId }: { eventId: string }) {
         setView({ kind: 'not_a_pass', at: Date.now() })
         return
       }
-      void submit(token)
+      void submit(token, randomUuid())
     },
     [submit],
   )
@@ -202,13 +206,13 @@ function Scanner({ eventId }: { eventId: string }) {
     if (gate.current.inFlight) return
     gate.current.reset()
     setManual('')
-    void submit(token)
+    void submit(token, randomUuid())
   }
 
   function retry() {
     if (view.kind !== 'outcome' || gate.current.inFlight) return
     gate.current.reset()
-    void submit(view.token)
+    void submit(view.token, view.attemptId)
   }
 
   if (loadError) {
@@ -473,6 +477,11 @@ function ResultOverlay({
         <p className="mt-1 text-lg font-semibold">
           {ok ? 'Checked in at ' : 'First checked in at '}
           {formatTime(r.checked_in_at, timeZone)}
+        </p>
+      )}
+      {ok && r.replayed && (
+        <p className="mt-2 text-base font-semibold" data-testid="scan-result-replayed">
+          Confirmed on retry: the earlier scan went through.
         </p>
       )}
     </ResultPanel>

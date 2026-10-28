@@ -7,6 +7,11 @@ Prepared by Claude after implementation and self-testing. Read this together wit
 
 ## Review instructions for Codex
 
+> An independent pre-audit (a separate Claude agent, not Codex) has already been run and remediated. See
+> [`AUDIT_REMEDIATION.md`](AUDIT_REMEDIATION.md). Please review the current branch head, including
+> `supabase/migrations/20261028000004_audit_remediation.sql` and `supabase/functions/invite-staff/`, and verify those
+> fixes as critically as the rest. Do not assume the pre-audit was complete.
+
 > Perform an independent, critical technical audit of PassSystem. Verify architecture, code quality, event
 > isolation, Supabase RLS policies, credential security, authentication, transaction safety, concurrency, public
 > registration abuse controls, mobile camera compatibility, and test coverage.

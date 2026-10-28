@@ -1,4 +1,10 @@
-import { browserTimeZone, isoToZonedInput, isValidTimeZone, zonedInputToIso } from './datetime'
+import {
+  browserTimeZone,
+  isoToZonedInput,
+  isValidTimeZone,
+  zonedInputExists,
+  zonedInputToIso,
+} from './datetime'
 import { isValidSlug } from './slug'
 import type { EventInput, EventRow, EventStatus } from './types'
 
@@ -68,6 +74,11 @@ export function validateEventForm(f: FormState): { errors: Errors; input?: Event
   const opensAt = f.opensAt ? zonedInputToIso(f.opensAt, tz) : null
   const closesAt = f.closesAt ? zonedInputToIso(f.closesAt, tz) : null
   if (opensAt && closesAt && closesAt <= opensAt) errors.closesAt = 'Registration must close after it opens.'
+  for (const key of ['startsAt', 'endsAt', 'opensAt', 'closesAt'] as const) {
+    if (f[key] && !errors[key] && !errors.timezone && !zonedInputExists(f[key], tz)) {
+      errors[key] = `This time does not exist in ${tz} (the clocks change that night). Pick another time.`
+    }
+  }
   let max: number | null = null
   if (f.maxAttendees.trim()) {
     max = Number(f.maxAttendees)

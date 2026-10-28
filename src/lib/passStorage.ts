@@ -13,6 +13,13 @@ export interface StoredPass {
 
 const KEY = 'passsystem.passes.v1'
 const MAX = 20
+/** Passes are dropped from this device once their event is well over. */
+const KEEP_AFTER_START_MS = 3 * 24 * 60 * 60 * 1000
+
+function current(p: StoredPass, now = Date.now()): boolean {
+  const start = Date.parse(p.startsAt)
+  return Number.isNaN(start) || start + KEEP_AFTER_START_MS > now
+}
 
 export function loadPasses(): StoredPass[] {
   try {
@@ -20,7 +27,7 @@ export function loadPasses(): StoredPass[] {
     if (!raw) return []
     const parsed = JSON.parse(raw) as unknown
     return Array.isArray(parsed)
-      ? (parsed as StoredPass[]).filter((p) => p && typeof p.token === 'string')
+      ? (parsed as StoredPass[]).filter((p) => p && typeof p.token === 'string' && current(p))
       : []
   } catch {
     return []

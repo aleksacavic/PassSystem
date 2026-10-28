@@ -299,6 +299,7 @@ test('administrator invites staff from the Staff page; invitee sets a password f
   await page.getByRole('button', { name: 'Send invite' }).click()
   await expect(page.getByText(`Invite sent to ${email}`)).toBeVisible()
   await expect(page.getByText(email, { exact: true })).toBeVisible()
+  await expect(page.getByRole('listitem').filter({ hasText: email })).toContainText('Invite pending')
 
   // Read the real invite email from the local test mailbox (Mailpit).
   const mailpit = 'http://127.0.0.1:54324'
@@ -325,5 +326,19 @@ test('administrator invites staff from the Staff page; invitee sets a password f
   await invitee.getByRole('button', { name: 'Save password' }).click()
   await expect(invitee).toHaveURL(/\/admin$/)
   await expect(invitee.getByText(/not assigned to any events/)).toBeVisible()
+  await ctx.close()
+})
+
+test('Staff page deployment check detects a forgeable cf-connecting-ip header (local stack)', async ({
+  browser,
+}) => {
+  const ctx = await browser.newContext({ baseURL })
+  const page = await ctx.newPage()
+  await signIn(page, organizer.email, organizer.password)
+  await page.goto('/admin/users')
+  await expect(page.getByTestId('ip-check')).toContainText('x-real-ip')
+  await page.getByRole('button', { name: 'Test header spoofing' }).click()
+  // Locally nothing replaces the header, so the check must flag it.
+  await expect(page.getByTestId('spoof-result')).toContainText('FORGEABLE')
   await ctx.close()
 })

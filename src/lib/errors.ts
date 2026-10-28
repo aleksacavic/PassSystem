@@ -16,6 +16,9 @@ const MESSAGES: Record<string, string> = {
   user_not_found: 'No staff account exists with that email address.',
   self_demotion: 'You cannot remove your own administrator rights.',
   event_archived: 'This event is archived. Scanning is disabled.',
+  user_not_confirmed:
+    'This person has not accepted their invite yet. Try again after they set their password.',
+  last_admin: 'At least one administrator must remain.',
 }
 
 export function messageFor(

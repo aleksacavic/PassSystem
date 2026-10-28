@@ -22,3 +22,14 @@ describe('validateRegistration', () => {
     expect(validateRegistration({ firstName: "D'Arcy", lastName: 'Jean-Luc Đokić', email: '' })).toEqual({})
   })
 })
+
+describe('invisible and formatting characters', () => {
+  it('rejects names that are invisible or reverse text', () => {
+    for (const name of ['​', '‮gnp.exe', '⁦x⁩', '­', '-', "''"]) {
+      expect(
+        validateRegistration({ firstName: name, lastName: 'B', email: '' }).firstName,
+        JSON.stringify(name),
+      ).toBeTruthy()
+    }
+  })
+})
