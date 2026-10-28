@@ -188,7 +188,13 @@ export default function UsersPage() {
             Test header spoofing
           </button>
           {spoof === 'running' && ' …'}
-          {spoof === 'failed' && ' — could not run the test.'}
+          {spoof === 'failed' && (
+            <span data-testid="spoof-failed">
+              {' '}
+              — the browser could not send the test header (Supabase Cloud blocks it), so this test can&apos;t
+              decide it here. Rate limiting is still active.
+            </span>
+          )}
           {spoof && typeof spoof === 'object' && (
             <span data-testid="spoof-result">
               {spoof.spoofable
