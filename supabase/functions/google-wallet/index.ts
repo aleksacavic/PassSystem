@@ -4,14 +4,15 @@
 // function looks the pass up with the service role, then returns a signed
 // save-to-wallet URL. Nothing is returned for unknown or revoked passes.
 // Secrets (Supabase → Edge Functions → Secrets):
-//   GOOGLE_WALLET_ISSUER_ID, GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL,
-//   GOOGLE_WALLET_PRIVATE_KEY, PUBLIC_SITE_URL, optional GOOGLE_WALLET_ISSUER_NAME
+//   GOOGLE_WALLET_ISSUER_ID and GOOGLE_WALLET_SERVICE_ACCOUNT_JSON (the whole
+//   downloaded key file), or GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL +
+//   GOOGLE_WALLET_PRIVATE_KEY. Optional: PUBLIC_SITE_URL, GOOGLE_WALLET_ISSUER_NAME.
 //
 // Request:  POST { "token": string }
 // Response: 200 { ok: true, url } | 4xx/5xx { ok: false, error, message }
 //
 // No third-party imports: nothing to download when the function boots.
-import { buildSaveUrl, type WalletPassData } from '../_shared/googleWallet.ts'
+import { buildSaveUrl, walletConfigFromEnv, type WalletPassData } from '../_shared/googleWallet.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -34,15 +35,10 @@ Deno.serve(async (req) => {
 
   const url = Deno.env.get('SUPABASE_URL')
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  const issuerId = Deno.env.get('GOOGLE_WALLET_ISSUER_ID')
-  const serviceAccountEmail = Deno.env.get('GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL')
-  const privateKeyPem = Deno.env.get('GOOGLE_WALLET_PRIVATE_KEY')
-  const siteOrigin = Deno.env.get('PUBLIC_SITE_URL')
+  const wallet = walletConfigFromEnv((name) => Deno.env.get(name))
   if (!url || !serviceKey)
     return fail(500, 'misconfigured', 'Function is missing its Supabase configuration.')
-  if (!issuerId || !serviceAccountEmail || !privateKeyPem || !siteOrigin) {
-    return fail(503, 'wallet_not_configured', 'Google Wallet is not set up yet.')
-  }
+  if (!wallet) return fail(503, 'wallet_not_configured', 'Google Wallet is not set up yet.')
 
   let token = ''
   try {
@@ -74,16 +70,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const saveUrl = await buildSaveUrl(
-      {
-        issuerId,
-        serviceAccountEmail,
-        privateKeyPem,
-        issuerName: Deno.env.get('GOOGLE_WALLET_ISSUER_NAME') || 'PassSystem',
-        siteOrigin: siteOrigin.replace(/\/+$/, ''),
-      },
-      data,
-    )
+    const saveUrl = await buildSaveUrl(wallet, data)
     return reply(200, { ok: true, url: saveUrl })
   } catch (e) {
     console.error('wallet signing failed', (e as Error).message)

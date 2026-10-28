@@ -11,13 +11,20 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
 const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
 mkdirSync('tests/.artifacts', { recursive: true })
-writeFileSync('tests/.artifacts/wallet-test-public.pem', publicKey.export({ type: 'spki', format: 'pem' }).toString())
+writeFileSync(
+  'tests/.artifacts/wallet-test-public.pem',
+  publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+)
 writeFileSync(
   'supabase/functions/.env',
   [
     'GOOGLE_WALLET_ISSUER_ID=3388000000099999999',
-    'GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL=wallet-test@passsystem-test.iam.gserviceaccount.com',
-    `GOOGLE_WALLET_PRIVATE_KEY="${pem.trim().replace(/\n/g, '\\n')}"`,
+    // Same shape as the JSON key file downloaded from Google Cloud (single-quoted: kept verbatim).
+    `GOOGLE_WALLET_SERVICE_ACCOUNT_JSON='${JSON.stringify({
+      type: 'service_account',
+      client_email: 'wallet-test@passsystem-test.iam.gserviceaccount.com',
+      private_key: pem,
+    })}'`,
     'GOOGLE_WALLET_ISSUER_NAME=PassSystem Test',
     'PUBLIC_SITE_URL=http://127.0.0.1:4173',
     '',

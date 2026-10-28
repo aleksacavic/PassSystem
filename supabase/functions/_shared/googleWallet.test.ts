@@ -5,6 +5,7 @@ import {
   buildSaveUrl,
   pemToPkcs8,
   signJwtRs256,
+  walletConfigFromEnv,
   walletIds,
   type WalletConfig,
   type WalletPassData,
@@ -131,5 +132,62 @@ describe('Google Wallet save links', () => {
 
   it('rejects a broken key instead of producing an unsigned link', async () => {
     await expect(signJwtRs256({}, '-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----')).rejects.toThrow()
+  })
+})
+
+describe('walletConfigFromEnv', () => {
+  const env = (vars: Record<string, string>) => (name: string) => vars[name]
+  const keyFile = JSON.stringify({
+    type: 'service_account',
+    client_email: 'wallet@proj.iam.gserviceaccount.com',
+    private_key: '-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n',
+  })
+
+  it('reads the whole service-account key file and defaults the site and issuer name', () => {
+    expect(
+      walletConfigFromEnv(
+        env({ GOOGLE_WALLET_ISSUER_ID: ' 3388 ', GOOGLE_WALLET_SERVICE_ACCOUNT_JSON: keyFile }),
+      ),
+    ).toEqual({
+      issuerId: '3388',
+      serviceAccountEmail: 'wallet@proj.iam.gserviceaccount.com',
+      privateKeyPem: '-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n',
+      issuerName: 'PassSystem',
+      siteOrigin: 'https://passsystem-phi.vercel.app',
+    })
+  })
+
+  it('accepts the key file pasted over several lines, and the separate variables', () => {
+    const pretty = JSON.stringify(JSON.parse(keyFile), null, 2)
+    expect(
+      walletConfigFromEnv(env({ GOOGLE_WALLET_ISSUER_ID: '1', GOOGLE_WALLET_SERVICE_ACCOUNT_JSON: pretty }))
+        ?.serviceAccountEmail,
+    ).toBe('wallet@proj.iam.gserviceaccount.com')
+    expect(
+      walletConfigFromEnv(
+        env({
+          GOOGLE_WALLET_ISSUER_ID: '1',
+          GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL: 'a@b.iam.gserviceaccount.com',
+          GOOGLE_WALLET_PRIVATE_KEY: 'pem',
+          PUBLIC_SITE_URL: 'https://tickets.example.org/',
+          GOOGLE_WALLET_ISSUER_NAME: 'Club',
+        }),
+      ),
+    ).toMatchObject({
+      serviceAccountEmail: 'a@b.iam.gserviceaccount.com',
+      siteOrigin: 'https://tickets.example.org',
+      issuerName: 'Club',
+    })
+  })
+
+  it('is null when something required is missing or the key file is not JSON', () => {
+    expect(walletConfigFromEnv(env({}))).toBeNull()
+    expect(walletConfigFromEnv(env({ GOOGLE_WALLET_SERVICE_ACCOUNT_JSON: keyFile }))).toBeNull()
+    expect(walletConfigFromEnv(env({ GOOGLE_WALLET_ISSUER_ID: '1' }))).toBeNull()
+    expect(
+      walletConfigFromEnv(
+        env({ GOOGLE_WALLET_ISSUER_ID: '1', GOOGLE_WALLET_SERVICE_ACCOUNT_JSON: '{not json' }),
+      ),
+    ).toBeNull()
   })
 })

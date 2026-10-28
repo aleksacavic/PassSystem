@@ -16,6 +16,39 @@ export interface WalletConfig {
   siteOrigin: string
 }
 
+/** Used when PUBLIC_SITE_URL is not set. */
+export const DEFAULT_SITE_ORIGIN = 'https://passsystem-phi.vercel.app'
+
+/**
+ * Wallet settings from the function's environment. The service account can be
+ * given as the whole downloaded JSON key file (GOOGLE_WALLET_SERVICE_ACCOUNT_JSON)
+ * or as GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL + GOOGLE_WALLET_PRIVATE_KEY.
+ * Null if anything required is missing or unreadable.
+ */
+export function walletConfigFromEnv(get: (name: string) => string | undefined): WalletConfig | null {
+  const issuerId = get('GOOGLE_WALLET_ISSUER_ID')?.trim()
+  let serviceAccountEmail = get('GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL')?.trim()
+  let privateKeyPem = get('GOOGLE_WALLET_PRIVATE_KEY')
+  const json = get('GOOGLE_WALLET_SERVICE_ACCOUNT_JSON')
+  if (json?.trim()) {
+    try {
+      const key = JSON.parse(json) as { client_email?: unknown; private_key?: unknown }
+      if (typeof key.client_email === 'string') serviceAccountEmail = key.client_email.trim()
+      if (typeof key.private_key === 'string') privateKeyPem = key.private_key
+    } catch {
+      return null
+    }
+  }
+  if (!issuerId || !serviceAccountEmail || !privateKeyPem) return null
+  return {
+    issuerId,
+    serviceAccountEmail,
+    privateKeyPem,
+    issuerName: get('GOOGLE_WALLET_ISSUER_NAME')?.trim() || 'PassSystem',
+    siteOrigin: (get('PUBLIC_SITE_URL')?.trim() || DEFAULT_SITE_ORIGIN).replace(/\/+$/, ''),
+  }
+}
+
 export interface WalletPassData {
   token: string
   registration: { id: string; first_name: string; last_name: string; token_version: number }

@@ -26,15 +26,16 @@ The signing key exists only as a Supabase function secret. It is never in the we
    - Open it → *Keys* → **Add key → JSON**. A file downloads. Keep it private.
 3. **Link them:** back in the Wallet Console → *Users* → **Invite** the service account email (from the JSON
    file, `…@….iam.gserviceaccount.com`) with the *Developer* role.
-4. **Store the secrets:** in the Supabase dashboard → PassSystem → *Edge Functions → Secrets*, add:
+4. **Store the secrets:** in the Supabase dashboard → PassSystem → *Edge Functions → Secrets*, add two:
 
    | Name | Value |
    | --- | --- |
    | `GOOGLE_WALLET_ISSUER_ID` | the Issuer ID |
-   | `GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL` | `client_email` from the JSON file |
-   | `GOOGLE_WALLET_PRIVATE_KEY` | `private_key` from the JSON file. Paste it whole; the `\n` line breaks are fine. |
-   | `PUBLIC_SITE_URL` | `https://passsystem-phi.vercel.app` |
-   | `GOOGLE_WALLET_ISSUER_NAME` | optional, shown on the ticket, e.g. your organisation's name |
+   | `GOOGLE_WALLET_SERVICE_ACCOUNT_JSON` | the **whole** JSON key file: open it in a text editor, select all, copy, paste |
+
+   Optional: `GOOGLE_WALLET_ISSUER_NAME` (shown on the ticket, default "PassSystem") and `PUBLIC_SITE_URL`
+   (default `https://passsystem-phi.vercel.app`). The older form, `GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL` +
+   `GOOGLE_WALLET_PRIVATE_KEY`, still works.
 
 5. **Deploy the function** (Claude does this; it needs the Supabase token's Edge Functions permission) and set
    `VITE_GOOGLE_WALLET=1` in Vercel so the button appears.
