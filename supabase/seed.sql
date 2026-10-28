@@ -1,0 +1,1 @@
+-- Local development seed intentionally empty. Use scripts/dev-seed.mjs to create demo staff users.

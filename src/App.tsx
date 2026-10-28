@@ -1,0 +1,89 @@
+import { lazy, Suspense } from 'react'
+import { createBrowserRouter, Navigate, Outlet, RouterProvider } from 'react-router'
+import { AuthProvider } from './auth/AuthProvider'
+import { RequireAuth } from './auth/RequireAuth'
+import { AdminLayout } from './components/AdminLayout'
+import { PageSpinner } from './components/ui'
+import { env } from './lib/env'
+import HomePage from './pages/public/HomePage'
+import RegisterPage from './pages/public/RegisterPage'
+import PassPage from './pages/public/PassPage'
+import NotFoundPage from './pages/public/NotFoundPage'
+
+// Staff-only code is split out so the attendee pages stay small on mobile networks.
+const LoginPage = lazy(() => import('./pages/admin/LoginPage'))
+const AccountPage = lazy(() => import('./pages/admin/AccountPage'))
+const EventsPage = lazy(() => import('./pages/admin/EventsPage'))
+const EventFormPage = lazy(() => import('./pages/admin/EventFormPage'))
+const EventDetailPage = lazy(() => import('./pages/admin/EventDetailPage'))
+const UsersPage = lazy(() => import('./pages/admin/UsersPage'))
+const ScanPage = lazy(() => import('./pages/scan/ScanPage'))
+
+function Lazy() {
+  return (
+    <Suspense fallback={<PageSpinner />}>
+      <Outlet />
+    </Suspense>
+  )
+}
+
+function StaffArea() {
+  return (
+    <RequireAuth>
+      <AdminLayout />
+    </RequireAuth>
+  )
+}
+
+const router = createBrowserRouter([
+  { path: '/', element: <HomePage /> },
+  { path: '/e/:slug', element: <RegisterPage /> },
+  { path: '/pass', element: <PassPage /> },
+  {
+    element: <Lazy />,
+    children: [
+      { path: '/login', element: <LoginPage /> },
+      {
+        element: <StaffArea />,
+        children: [
+          { path: '/admin', element: <EventsPage /> },
+          { path: '/admin/events/new', element: <EventFormPage /> },
+          { path: '/admin/events/:id', element: <EventDetailPage /> },
+          { path: '/admin/events/:id/edit', element: <EventFormPage /> },
+          {
+            path: '/admin/users',
+            element: (
+              <RequireAuth admin>
+                <UsersPage />
+              </RequireAuth>
+            ),
+          },
+          { path: '/account', element: <AccountPage /> },
+          { path: '/scan', element: <ScanPage /> },
+          { path: '/scan/:eventId', element: <ScanPage /> },
+        ],
+      },
+    ],
+  },
+  { path: '/admin/*', element: <Navigate to="/admin" replace /> },
+  { path: '*', element: <NotFoundPage /> },
+])
+
+export default function App() {
+  if (!env.configured) {
+    return (
+      <div className="mx-auto max-w-md p-6">
+        <h1 className="text-xl font-bold">PassSystem is not configured</h1>
+        <p className="mt-2 text-ink-600">
+          Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> and rebuild. See
+          README.
+        </p>
+      </div>
+    )
+  }
+  return (
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  )
+}

@@ -1,0 +1,71 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Neutral ink used for primary actions and text */
+  --color-ink-50: #f7f7f8;
+  --color-ink-100: #eeeef0;
+  --color-ink-200: #dcdce0;
+  --color-ink-300: #bcbcc4;
+  --color-ink-400: #8e8e99;
+  --color-ink-500: #6b6b76;
+  --color-ink-600: #52525b;
+  --color-ink-700: #3f3f46;
+  --color-ink-800: #27272a;
+  --color-ink-900: #18181b;
+
+  /* Accent for links and focus */
+  --color-accent-50: #eef4ff;
+  --color-accent-100: #dbe7ff;
+  --color-accent-500: #3b6fe0;
+  --color-accent-600: #2a58c4;
+  --color-accent-700: #22479f;
+
+  /* Operational states */
+  --color-ok-50: #ecfdf3;
+  --color-ok-100: #d1fadf;
+  --color-ok-600: #12873f;
+  --color-ok-700: #0b6e32;
+  --color-bad-50: #fef3f2;
+  --color-bad-100: #fee4e2;
+  --color-bad-600: #c8261b;
+  --color-bad-700: #a51c13;
+  --color-warn-50: #fffaeb;
+  --color-warn-100: #fef0c7;
+  --color-warn-500: #f5a30b;
+  --color-warn-600: #d68100;
+  --color-warn-800: #7a4304;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-ink-50 text-ink-900 antialiased;
+    min-height: 100dvh;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-accent-500);
+    outline-offset: 2px;
+  }
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}
