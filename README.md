@@ -9,7 +9,8 @@ Each pass admits **one entry to its own event**.
 
 - **Stack:** React 19 + TypeScript + Vite + Tailwind CSS 4 (static SPA) · Supabase (Postgres, Auth, PostgREST)
 - **No custom server:** all privileged logic lives in Postgres `SECURITY DEFINER` functions guarded by RLS.
-- **Status:** implemented and tested locally against a full Supabase stack. See
+- **Live:** https://passsystem-phi.vercel.app
+- **Status:** implemented, tested against a full local Supabase stack, and deployed. See
   [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) and [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md).
   Reviewers: start with [`docs/CODEX_HANDOVER.md`](docs/CODEX_HANDOVER.md).
 

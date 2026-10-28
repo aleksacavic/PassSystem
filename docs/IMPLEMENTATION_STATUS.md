@@ -14,7 +14,7 @@ Legend: ✅ done and tested · 🟡 done, needs real-world verification · ⏳ b
 | D. Administration (login, events, edit, attendees, staff, statistics, users) | ✅ |
 | E. Scanning (camera, validation, feedback, repeat-scan protection) | ✅ (🟡 real devices) |
 | F. Testing (typecheck, lint, unit, integration, E2E) | ✅ (all passing, see TEST_RESULTS.md) |
-| G. Deployment | ⏳ Needs a Supabase project and hosting authorization from the owner |
+| G. Deployment | ✅ Live at https://passsystem-phi.vercel.app (Supabase + Vercel), 2026-10-28 |
 | H. Documentation and review package | ✅ README, CODEX_HANDOVER, this file, TEST_RESULTS |
 | Codex audit → remediation | ⏳ Waiting for the Codex audit report |
 
@@ -32,7 +32,7 @@ a production build under the production CSP:
 | Event B: separate attendees/records, Event A's pass rejected at Event B | ✅ |
 | Administrator inspects registrations and attendance for both events, CSV export | ✅ |
 | Writes persist, security controls function (54 integration tests) | ✅ |
-| On real phones over a real HTTPS deployment | ⏳ Needs deployment |
+| On real phones over a real HTTPS deployment | 🟡 Deployed; owner signed in as administrator. Real-device scan test in progress. |
 
 ## Requirement checklist
 
@@ -100,23 +100,26 @@ a production build under the production CSP:
 | 4 | Medium | Rate-limit IP source used the client-controllable left-most `X-Forwarded-For` | Order is now `cf-connecting-ip` (configurable trust) → `x-real-ip` → right-most XFF; spoofing test added |
 | 5 | Config | `[auth.email] enable_signup=false` in the CLI config disables email login entirely | Documented; only the global `[auth] enable_signup=false` is used |
 
-## Blocked on the owner (deployment)
+## Deployment (production)
 
-To deploy, I need the following. Use secure channels: environment secrets or connectors, not chat, for anything
-secret.
+| Item | Value |
+| --- | --- |
+| Site | https://passsystem-phi.vercel.app (Vercel project `passsystem`, linked to this GitHub repo) |
+| Supabase project | `wvwpedmwhsddsfixjpjd` (region ap-southeast-2, Postgres 17.11) |
+| Migrations | 3/3 applied through the Management API and recorded in `supabase_migrations.schema_migrations` |
+| Live schema checks | RLS on all 5 tables; anon can execute only `get_pass`, `get_public_event`, `register_for_event`; every SECURITY DEFINER function pins `search_path`; credential hashes not selectable |
+| Auth | Public sign-up **off**, email login on, minimum password length 10, Site URL and redirect allow list set to the Vercel domain |
+| Vercel protection | Standard: production domain public, preview deployments require Vercel login |
+| Administrator | Bootstrapped with `private.bootstrap_admin()` (owner's account) |
+| Frontend env | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (production, preview, development) |
 
-1. **Supabase project**: either
-   - give the session a Supabase access token as an environment secret (`SUPABASE_ACCESS_TOKEN`) plus the project
-     ref and DB password as secrets, and I will run `supabase link` + `supabase db push`, **or**
-   - run `npx supabase link --project-ref <ref> && npx supabase db push` yourself, then send me only the project
-     URL and publishable key (both are public values).
-   - In the dashboard: Authentication → Sign In / Providers → **Allow new users to sign up: OFF**, and set Site URL
-     and Redirect URLs to the deployed origin (and `/account`).
-2. **Hosting**: connect the GitHub repository to Vercel (or Netlify), and set `VITE_SUPABASE_URL` and
-   `VITE_SUPABASE_PUBLISHABLE_KEY`. Alternatively, provide a `VERCEL_TOKEN` as an environment secret and I can
-   deploy with the Vercel CLI.
-3. **First administrator**: run `npm run staff:create -- --email <you> --admin` locally with the secret key, or
-   create the user in the dashboard and run `select private.bootstrap_admin('<you>')`.
+Deployment notes:
+- Merging to `main` deploys production automatically. The first production build was made from the PR branch
+  through the Vercel API.
+- Still to verify on the live stack: `diagnose_client_ip` reports `cf-connecting-ip` (Staff page, deployment
+  check line), and a real-device camera scan.
+- Optional: set the Supabase password requirement to "letters and digits" so it matches the app's own check.
+- Remove the deployment tokens (Supabase access token, Vercel token) when they are no longer needed.
 
 ## Pull request
 
