@@ -1,16 +1,28 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../../auth/AuthProvider'
-import { diagnoseClientIp, listProfiles, setUserAdmin, type ClientIpDiagnosis } from '../../lib/api'
+import {
+  diagnoseClientIp,
+  inviteStaff,
+  listProfiles,
+  setUserAdmin,
+  type ClientIpDiagnosis,
+} from '../../lib/api'
+import { validateEmail } from '../../lib/validation'
 import { formatDateTime } from '../../lib/datetime'
 import type { Profile } from '../../lib/types'
 import { PageHeader } from '../../components/AdminLayout'
-import { Alert, Badge, Button, Card, Spinner } from '../../components/ui'
+import { Alert, Badge, Button, Card, Field, Input, Spinner } from '../../components/ui'
 
 export default function UsersPage() {
   const { session } = useAuth()
   const [users, setUsers] = useState<Profile[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ipCheck, setIpCheck] = useState<ClientIpDiagnosis | null>(null)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteAdmin, setInviteAdmin] = useState(false)
+  const [inviting, setInviting] = useState(false)
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [inviteDone, setInviteDone] = useState<string | null>(null)
 
   const load = useCallback(() => {
     listProfiles()
@@ -23,6 +35,30 @@ export default function UsersPage() {
       .then(setIpCheck)
       .catch(() => undefined)
   }, [])
+
+  async function onInvite(e: FormEvent) {
+    e.preventDefault()
+    setInviteError(null)
+    setInviteDone(null)
+    const email = inviteEmail.trim().toLowerCase()
+    const invalid = email ? validateEmail(email) : 'Enter an email address.'
+    if (invalid) return setInviteError(invalid)
+    setInviting(true)
+    try {
+      const res = await inviteStaff(email, inviteAdmin)
+      setInviteDone(
+        res.warning ??
+          `Invite sent to ${res.email}${res.admin ? ' as administrator' : ''}. They choose a password from the email link.`,
+      )
+      setInviteEmail('')
+      setInviteAdmin(false)
+      load()
+    } catch (err) {
+      setInviteError((err as Error).message)
+    } finally {
+      setInviting(false)
+    }
+  }
 
   async function toggle(u: Profile) {
     const verb = u.is_admin ? 'Remove administrator rights from' : 'Make administrator:'
@@ -41,11 +77,49 @@ export default function UsersPage() {
         title="Staff accounts"
         description="Everyone who can sign in. Assign people to events from each event’s Staff tab."
       />
-      <Alert tone="info" title="Adding a staff member" className="mb-5">
-        Public sign-up is disabled. Create or invite the person in the Supabase dashboard (Authentication →
-        Users → Add user / Invite), or run <code className="font-mono">npm run staff:create</code>. They
-        appear here after their first account is created.
-      </Alert>
+      <Card className="mb-6 p-5">
+        <h2 className="text-base font-semibold">Invite staff</h2>
+        <p className="mt-1 text-sm text-ink-600">
+          They receive an email, choose a password, and can then be assigned to events from each event’s Staff
+          tab.
+        </p>
+        <form className="mt-4 space-y-4" onSubmit={onInvite} noValidate>
+          <Field label="Email">
+            {(p) => (
+              <Input
+                {...p}
+                type="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoComplete="off"
+                spellCheck={false}
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+            )}
+          </Field>
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              id="invite-admin"
+              type="checkbox"
+              className="mt-0.5 size-5 rounded border-ink-300 accent-ink-900"
+              checked={inviteAdmin}
+              onChange={(e) => setInviteAdmin(e.target.checked)}
+            />
+            <span>
+              <span className="font-semibold">Administrator</span>
+              <span className="block text-ink-500">
+                Full access to every event, can create events and invite staff.
+              </span>
+            </span>
+          </label>
+          {inviteError && <Alert tone="bad">{inviteError}</Alert>}
+          {inviteDone && <Alert tone="ok">{inviteDone}</Alert>}
+          <Button type="submit" loading={inviting}>
+            Send invite
+          </Button>
+        </form>
+      </Card>
       {error && (
         <Alert tone="bad" className="mb-4">
           {error}

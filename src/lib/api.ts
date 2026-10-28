@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { siteOrigin } from './env'
 import { ApiError, describeError, errorCode, messageFor } from './errors'
 import type {
   AdmissionLog,
@@ -257,6 +258,39 @@ export async function listProfiles(): Promise<Profile[]> {
 export async function setUserAdmin(userId: string, isAdmin: boolean): Promise<void> {
   const { error } = await supabase.rpc('set_user_admin', { p_user_id: userId, p_is_admin: isAdmin })
   if (error) fail(error)
+}
+
+export interface InviteResult {
+  email: string
+  admin: boolean
+  warning?: string
+}
+
+/**
+ * Invite a staff member by email (administrators only). Runs in the
+ * `invite-staff` Edge Function, which holds the secret key server-side.
+ */
+export async function inviteStaff(email: string, admin: boolean): Promise<InviteResult> {
+  const { data, error } = await supabase.functions.invoke('invite-staff', {
+    body: { email, admin, redirectTo: `${siteOrigin()}/` },
+  })
+  if (error) {
+    // Non-2xx: the function returns { ok: false, error, message }.
+    const ctx = (error as { context?: Response }).context
+    const body = ctx
+      ? await ctx.json().then(
+          (j: { error?: string; message?: string }) => j,
+          () => null,
+        )
+      : null
+    if (body?.message) throw new ApiError(body.message, body.error ?? null)
+    throw new ApiError(
+      /fetch|network/i.test(error.message)
+        ? 'Network error. Check your connection and try again.'
+        : error.message,
+    )
+  }
+  return data as InviteResult
 }
 
 export interface ClientIpDiagnosis {

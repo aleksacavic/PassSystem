@@ -286,3 +286,44 @@ test('invited staff member sets a password from the invite link and can sign in'
   await signIn(page, email, password)
   await ctx.close()
 })
+
+test('administrator invites staff from the Staff page; invitee sets a password from the email', async ({
+  browser,
+}) => {
+  const ctx = await browser.newContext({ baseURL })
+  const page = await ctx.newPage()
+  await signIn(page, organizer.email, organizer.password)
+  await page.goto('/admin/users')
+  const email = `e2e-invited-${randomUUID().slice(0, 8)}@passsystem.test`
+  await page.getByLabel('Email').fill(email)
+  await page.getByRole('button', { name: 'Send invite' }).click()
+  await expect(page.getByText(`Invite sent to ${email}`)).toBeVisible()
+  await expect(page.getByText(email, { exact: true })).toBeVisible()
+
+  // Read the real invite email from the local test mailbox (Mailpit).
+  const mailpit = 'http://127.0.0.1:54324'
+  let link: string | undefined
+  for (let i = 0; i < 30 && !link; i++) {
+    const search = await (
+      await fetch(`${mailpit}/api/v1/search?query=${encodeURIComponent(`to:"${email}"`)}`)
+    ).json()
+    const id = search.messages?.[0]?.ID
+    if (id) {
+      const msg = await (await fetch(`${mailpit}/api/v1/message/${id}`)).json()
+      link = /href="([^"]+)"/.exec(msg.HTML ?? '')?.[1]?.replace(/&amp;/g, '&')
+    }
+    if (!link) await page.waitForTimeout(500)
+  }
+  expect(link, 'invite email with a link').toBeTruthy()
+
+  const invitee = await (await browser.newContext({ baseURL })).newPage()
+  await invitee.goto(link!)
+  await expect(invitee).toHaveURL(/\/account$/)
+  const password = `Invited-${randomUUID().slice(0, 8)}1`
+  await invitee.getByLabel('New password', { exact: true }).fill(password)
+  await invitee.getByLabel('Confirm new password').fill(password)
+  await invitee.getByRole('button', { name: 'Save password' }).click()
+  await expect(invitee).toHaveURL(/\/admin$/)
+  await expect(invitee.getByText(/not assigned to any events/)).toBeVisible()
+  await ctx.close()
+})
