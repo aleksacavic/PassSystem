@@ -795,6 +795,14 @@ begin
     raise exception 'No staff account with that email' using errcode = 'P0002', hint = 'user_not_found';
   end if;
 
+  -- Changing an existing organizer's role is an administrator decision too.
+  if not private.is_admin() and exists (
+    select 1 from public.event_staff s
+    where s.event_id = p_event_id and s.user_id = v_user_id and s.role = 'organizer'
+  ) then
+    raise exception 'Only administrators can change an organizer''s role' using errcode = '42501', hint = 'admin_required';
+  end if;
+
   insert into public.event_staff (event_id, user_id, role, created_by)
   values (p_event_id, v_user_id, p_role, auth.uid())
   on conflict (event_id, user_id) do update set role = excluded.role

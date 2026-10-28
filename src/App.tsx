@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
-import { createBrowserRouter, Navigate, Outlet, RouterProvider } from 'react-router'
-import { AuthProvider } from './auth/AuthProvider'
+import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation } from 'react-router'
+import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { RequireAuth } from './auth/RequireAuth'
 import { AdminLayout } from './components/AdminLayout'
 import { PageSpinner } from './components/ui'
@@ -27,6 +27,14 @@ function Lazy() {
   )
 }
 
+/** Invite and password-recovery links land on the site root: send them to the password form. */
+function Root() {
+  const { session, needsPassword } = useAuth()
+  const { pathname } = useLocation()
+  if (session && needsPassword && pathname !== '/account') return <Navigate to="/account" replace />
+  return <Outlet />
+}
+
 function StaffArea() {
   return (
     <RequireAuth>
@@ -36,37 +44,42 @@ function StaffArea() {
 }
 
 const router = createBrowserRouter([
-  { path: '/', element: <HomePage /> },
-  { path: '/e/:slug', element: <RegisterPage /> },
-  { path: '/pass', element: <PassPage /> },
   {
-    element: <Lazy />,
+    element: <Root />,
     children: [
-      { path: '/login', element: <LoginPage /> },
+      { path: '/', element: <HomePage /> },
+      { path: '/e/:slug', element: <RegisterPage /> },
+      { path: '/pass', element: <PassPage /> },
       {
-        element: <StaffArea />,
+        element: <Lazy />,
         children: [
-          { path: '/admin', element: <EventsPage /> },
-          { path: '/admin/events/new', element: <EventFormPage /> },
-          { path: '/admin/events/:id', element: <EventDetailPage /> },
-          { path: '/admin/events/:id/edit', element: <EventFormPage /> },
+          { path: '/login', element: <LoginPage /> },
           {
-            path: '/admin/users',
-            element: (
-              <RequireAuth admin>
-                <UsersPage />
-              </RequireAuth>
-            ),
+            element: <StaffArea />,
+            children: [
+              { path: '/admin', element: <EventsPage /> },
+              { path: '/admin/events/new', element: <EventFormPage /> },
+              { path: '/admin/events/:id', element: <EventDetailPage /> },
+              { path: '/admin/events/:id/edit', element: <EventFormPage /> },
+              {
+                path: '/admin/users',
+                element: (
+                  <RequireAuth admin>
+                    <UsersPage />
+                  </RequireAuth>
+                ),
+              },
+              { path: '/account', element: <AccountPage /> },
+              { path: '/scan', element: <ScanPage /> },
+              { path: '/scan/:eventId', element: <ScanPage /> },
+            ],
           },
-          { path: '/account', element: <AccountPage /> },
-          { path: '/scan', element: <ScanPage /> },
-          { path: '/scan/:eventId', element: <ScanPage /> },
         ],
       },
+      { path: '/admin/*', element: <Navigate to="/admin" replace /> },
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
-  { path: '/admin/*', element: <Navigate to="/admin" replace /> },
-  { path: '*', element: <NotFoundPage /> },
 ])
 
 export default function App() {

@@ -192,6 +192,27 @@ describe('authenticated staff', () => {
     expect((await c.rpc('remove_event_staff', { p_staff_id: strangerRow.id })).error).toBeNull()
   })
 
+  it('organizers cannot downgrade another organizer by re-adding them', async () => {
+    const co = await createStaff({ label: 'sec-coorg' })
+    expect(
+      (
+        await admin.client.rpc('add_event_staff', {
+          p_event_id: ev.id,
+          p_email: co.email,
+          p_role: 'organizer',
+        })
+      ).error,
+    ).toBeNull()
+    const res = await organizer.client.rpc('add_event_staff', {
+      p_event_id: ev.id,
+      p_email: co.email,
+      p_role: 'operator',
+    })
+    expect(res.error?.hint).toBe('admin_required')
+    const rows = await db(`select role from event_staff where event_id = $1 and user_id = $2`, [ev.id, co.id])
+    expect(rows[0]!.role).toBe('organizer')
+  })
+
   it('only administrators create or delete events', async () => {
     const ins = await organizer.client
       .from('events')
@@ -202,14 +223,12 @@ describe('authenticated staff', () => {
   })
 
   it('cannot forge created_by or other protected columns', async () => {
-    const ins = await admin.client
-      .from('events')
-      .insert({
-        name: 'Forge',
-        slug: `forge-${Date.now()}`,
-        starts_at: new Date().toISOString(),
-        created_by: stranger.id,
-      })
+    const ins = await admin.client.from('events').insert({
+      name: 'Forge',
+      slug: `forge-${Date.now()}`,
+      starts_at: new Date().toISOString(),
+      created_by: stranger.id,
+    })
     expect(ins.error?.code).toBe('42501')
     const upd = await admin.client.from('events').update({ created_at: '2000-01-01' }).eq('id', ev.id)
     expect(upd.error?.code).toBe('42501')

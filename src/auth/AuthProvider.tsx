@@ -90,7 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session])
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+    // Local scope: signing out one door phone must not sign out the same account elsewhere.
+    await supabase.auth.signOut({ scope: 'local' })
     setSession(null)
     setProfile(null)
     setProfileFor(null)

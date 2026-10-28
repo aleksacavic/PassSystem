@@ -262,3 +262,27 @@ test('scanner explains a denied camera permission and keeps manual entry', async
   await expect(page.getByLabel('Pass code')).toBeVisible()
   await ctx.close()
 })
+
+test('invited staff member sets a password from the invite link and can sign in', async ({ browser }) => {
+  const email = `e2e-invitee-${randomUUID().slice(0, 8)}@passsystem.test`
+  const { data, error } = await service.auth.admin.generateLink({
+    type: 'invite',
+    email,
+    options: { redirectTo: `${baseURL}/` },
+  })
+  expect(error).toBeNull()
+  const ctx = await browser.newContext({ baseURL })
+  const page = await ctx.newPage()
+  await page.goto(data.properties!.action_link)
+  await expect(page).toHaveURL(/\/account$/)
+  await expect(page.getByRole('heading', { name: 'Choose your password' })).toBeVisible()
+  const password = `Invited-${randomUUID().slice(0, 8)}1`
+  await page.getByLabel('New password', { exact: true }).fill(password)
+  await page.getByLabel('Confirm new password').fill(password)
+  await page.getByRole('button', { name: 'Save password' }).click()
+  await expect(page).toHaveURL(/\/admin$/)
+  await expect(page.getByText(/not assigned to any events/)).toBeVisible()
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await signIn(page, email, password)
+  await ctx.close()
+})
