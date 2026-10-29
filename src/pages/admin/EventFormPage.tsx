@@ -20,8 +20,16 @@ const zones: string[] = (() => {
   }
 })()
 
+/**
+ * One editor per route identity: moving between events, or between creating and
+ * editing, starts a fresh editor, so no state of the previous event survives (R11-01).
+ */
 export default function EventFormPage() {
   const { id } = useParams()
+  return <EventEditor key={id ?? 'new'} id={id} />
+}
+
+function EventEditor({ id }: { id: string | undefined }) {
   const isNew = !id
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
@@ -63,6 +71,9 @@ export default function EventFormPage() {
     }
   }, [id, attempt])
 
+  // Only the record of the event this route names can be edited.
+  const loaded = original && original.id === id ? original : null
+
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => {
       const next = { ...f, [key]: value }
@@ -77,12 +88,12 @@ export default function EventFormPage() {
     const { errors, input } = validateEventForm(form)
     setErrors(errors)
     if (!input) return
-    if (!isNew && !original) return
+    if (!isNew && !loaded) return
     setSaving(true)
     try {
       const saved = isNew
         ? await createEvent(input)
-        : await updateEvent(id!, input, { updatedAt: original!.updated_at })
+        : await updateEvent(id!, input, { updatedAt: loaded!.updated_at })
       navigate(`/admin/events/${saved.id}`)
     } catch (err) {
       const msg = (err as Error).message
@@ -109,7 +120,7 @@ export default function EventFormPage() {
 
   if (loading) return <PageSpinner />
   if (isNew && !isAdmin) return <Alert tone="bad">Only administrators can create events.</Alert>
-  if (!isNew && !original)
+  if (!isNew && !loaded)
     return (
       <div className="max-w-2xl space-y-4">
         <Alert tone="bad" title="This event could not be loaded">
@@ -136,7 +147,7 @@ export default function EventFormPage() {
       </div>
     )
 
-  const slugChanged = original && original.slug !== form.slug && original.status !== 'draft'
+  const slugChanged = loaded && loaded.slug !== form.slug && loaded.status !== 'draft'
 
   return (
     <div className="max-w-2xl">

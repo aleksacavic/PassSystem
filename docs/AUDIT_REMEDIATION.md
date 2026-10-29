@@ -243,3 +243,17 @@ Findings from `docs/CODEX_REVIEW_10.md`. Frontend only; tests are in `src/pages/
 | R10-01 | Medium | Editing an existing event now needs its current version. If loading the event fails, the page shows "This event could not be loaded … Nothing has been changed." with **Try again** and **Back**, instead of an editable default form, and submitting is refused while no version is loaded. `updateEvent` takes a required expectation, `{ updatedAt }` or `{ status }` (a type error without one), and also refuses at run time, before any query, when the version and status are both empty, so no application path updates an event by ID alone. Tests: load fails → no form, filling and saving whatever is shown sends nothing (on the old page this saved with `updatedAt: undefined`); retry loads the event and the save carries the loaded `updated_at`; `updateEvent` with `{}`, an empty or a missing version starts no query; `@ts-expect-error` checks that the expectation is required. |
 
 Results after this remediation: unit 122 / 122, integration 138 / 138, E2E 9 / 9.
+
+## Codex review 11 remediation (no migration)
+
+Findings from `docs/CODEX_REVIEW_11.md`. Frontend only; tests are in `src/pages/admin/EventFormPage.test.tsx` and
+`src/lib/api.updateEvent.test.ts`.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R11-01 | Low | The editor is bound to the route's identity: `EventFormPage` renders the editor keyed by the event ID (or `new`), so moving from event A to event B, or from editing to creating, starts a fresh editor with no state from A. As a second guard, the form is shown and saved only when the loaded record's `id` equals the route ID, so an event's record cannot be inferred from a timestamp (A and B in the tests share one `updated_at`). Tests: A loaded → B pending (nothing editable, completing and saving sends nothing) → B fails (error screen, no A values, still nothing sent); A → B loads (B shown, save targets B with B's version); editing A → New (empty form, creates, never updates A). On 350a368 the first sent `updateEvent(B, …, { updatedAt: A's })` and the third kept A's form; the second passes on both (control). In these tests the save step runs before the UI checks, so the old code fails on the save itself. |
+
+Also from this review: `updateEvent` called without any expectation object (plain JavaScript) now fails with the named
+`missing_version` error instead of a `TypeError`, still before any query (test covers `undefined` and `null`).
+
+Results after this remediation: unit 125 / 125, integration 138 / 138, E2E 9 / 9.

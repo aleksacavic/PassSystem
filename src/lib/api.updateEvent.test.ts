@@ -50,7 +50,14 @@ describe('updateEvent', () => {
   })
 
   it('refuses to write without a version or status, instead of updating by ID alone (R10-01)', async () => {
-    for (const expect_ of [{}, { updatedAt: '' }, { updatedAt: undefined }, { status: undefined }]) {
+    for (const expect_ of [
+      undefined,
+      null,
+      {},
+      { updatedAt: '' },
+      { updatedAt: undefined },
+      { status: undefined },
+    ]) {
       // Callers that bypass the type (an unloaded form, plain JavaScript) are refused at run time too.
       await expect(
         updateEvent('ev-1', { name: 'Renamed' }, expect_ as unknown as { updatedAt: string }),

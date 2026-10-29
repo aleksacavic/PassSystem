@@ -129,8 +129,9 @@ export async function updateEvent(
   input: Partial<EventInput>,
   expect: EventExpectation,
 ): Promise<EventRow> {
-  const updatedAt = 'updatedAt' in expect ? expect.updatedAt : undefined
-  const status = 'status' in expect ? expect.status : undefined
+  const given = (expect ?? {}) as { updatedAt?: string; status?: EventRow['status'] }
+  const updatedAt = given.updatedAt
+  const status = given.status
   // Also checked at run time, so an empty or missing value cannot fall back to an unconditional write.
   if (!updatedAt && !status)
     throw new ApiError('The event could not be saved. Reload the page and try again.', 'missing_version')
