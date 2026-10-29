@@ -525,6 +525,29 @@ test('attendee list on a phone: full-width search, clear button and "Clear all"'
   await expect(phone.getByText('No attendees match these filters.')).toBeVisible()
   await phone.screenshot({ path: join(ART, 'attendees-phone-filtered.png'), fullPage: false })
 
+  // In between (R16-01): with a query active, the search and the status menu keep usable widths
+  // and nothing scrolls sideways, from the smallest phone to desktop.
+  for (const width of [320, 640, 768, 1024, 1280]) {
+    const page = await (await browser.newContext({ viewport: { width, height: 900 }, baseURL })).newPage()
+    await signIn(page, organizer.email, organizer.password)
+    await page.goto(`/admin/events/${ev!.id}?tab=attendees`)
+    const box = page.getByRole('searchbox', { name: 'Search attendees' })
+    await box.fill('duric')
+    await page.getByRole('combobox', { name: 'Filter by status' }).selectOption('registered')
+    await expect(page.getByRole('button', { name: 'Clear all' }).first()).toBeVisible()
+    await expect(page.locator('text=Tea Mihalic >> visible=true')).toHaveCount(0) // filtered list settled
+    await expect(page.locator('text=Ivana Duric >> visible=true').first()).toBeVisible()
+    expect((await box.boundingBox())!.width, `search at ${width}px`).toBeGreaterThanOrEqual(240)
+    const select = await page.getByRole('combobox', { name: 'Filter by status' }).boundingBox()
+    expect(select!.width, `status menu at ${width}px`).toBeGreaterThanOrEqual(170)
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+      `overflow at ${width}px`,
+    ).toBeLessThanOrEqual(width)
+    if (width === 640) await page.screenshot({ path: join(ART, 'attendees-640.png'), fullPage: false })
+    await page.context().close()
+  }
+
   // Desktop: search, status, Clear all and Export on one row.
   const desk = await (await browser.newContext({ viewport: { width: 1280, height: 900 }, baseURL })).newPage()
   await signIn(desk, organizer.email, organizer.password)

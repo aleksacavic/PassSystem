@@ -1,5 +1,5 @@
 import { Ban, Download, RefreshCw, RotateCcw, Search, X } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   listAllRegistrations,
   listRegistrations,
@@ -41,13 +41,20 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
     return () => clearTimeout(t)
   }, [search])
 
+  // Only the latest request may update the list: a slower, older one (a search
+  // since cleared, a previous page, an earlier poll) is ignored when it arrives (R16-02).
+  const latest = useRef(0)
+  const searchInput = useRef<HTMLInputElement>(null)
+
   const load = useCallback(() => {
+    const request = ++latest.current
     listRegistrations({ eventId: event.id, search: debounced, status, page, pageSize: PAGE_SIZE })
       .then((d) => {
+        if (request !== latest.current) return
         setData(d)
         setError(null)
       })
-      .catch((e: Error) => setError(e.message))
+      .catch((e: Error) => request === latest.current && setError(e.message))
   }, [event.id, debounced, status, page])
 
   useEffect(load, [load])
@@ -97,6 +104,7 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
     setSearch('')
     setDebounced('')
     setPage(0)
+    searchInput.current?.focus() // keep typing without reaching for the field again
   }
 
   function clearAll() {
@@ -108,14 +116,16 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
     <div className="space-y-4">
       <RegistrationHistory event={event} />
 
-      {/* Search gets its own full-width row on phones; side by side with the filters from sm up. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative min-w-0 sm:max-w-sm sm:flex-1">
+      {/* Search gets its own full-width row on phones and tablets; side by side with the filters
+          only from lg up, where it keeps a usable minimum width (R16-01). */}
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        <div className="relative min-w-0 lg:max-w-sm lg:min-w-72 lg:flex-1">
           <Search
             className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle"
             aria-hidden="true"
           />
           <Input
+            ref={searchInput}
             type="search"
             enterKeyHint="search"
             placeholder="Search name, email or phone"
@@ -138,9 +148,10 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
             </button>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:contents">
-          {/* Wrapper sets the width: the shared control class is w-full. */}
-          <div className="min-w-0 flex-1 sm:w-48 sm:flex-none">
+        <div className="flex flex-wrap items-center gap-2 lg:contents">
+          {/* Wrapper sets the width: the shared control class is w-full. Its minimum fits the
+              longest status label; Export wraps below it on the narrowest phones. */}
+          <div className="min-w-44 flex-1 lg:w-48 lg:flex-none">
             <Select
               aria-label="Filter by status"
               value={status}
@@ -156,14 +167,14 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
             </Select>
           </div>
           {filtered && (
-            // Phones: its own line under the filters, so the status menu keeps its width.
-            <div className="order-last flex w-full justify-end sm:order-none sm:w-auto">
+            // Below lg: its own line under the filters, so the status menu keeps its width.
+            <div className="order-last flex w-full justify-end lg:order-none lg:w-auto">
               <Button variant="ghost" size="sm" icon={X} onClick={clearAll}>
                 Clear all
               </Button>
             </div>
           )}
-          <div className="hidden sm:block sm:flex-1" />
+          <div className="hidden lg:block lg:flex-1" />
           <Button variant="secondary" icon={Download} onClick={exportCsv} loading={exporting}>
             Export CSV
           </Button>

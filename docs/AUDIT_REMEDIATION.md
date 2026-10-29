@@ -344,3 +344,17 @@ Results after this remediation: unit 147 / 147, integration 138 / 138, E2E 10 / 
   registrations spread over six hours.
 
 Results: unit 155 / 155, integration 138 / 138, E2E 10 / 10.
+
+## Codex review 16 remediation (no migration)
+
+Findings from `docs/CODEX_REVIEW_16.md`. Frontend only.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R16-01 | Low | The attendee toolbar keeps the search on its own full-width row until `lg` (1024px); from `lg` the search has an 18rem minimum next to the filters. The status menu has an 11rem minimum (fits "Not checked in"), and Export wraps below it on the narrowest phones instead of squeezing it. E2E: at 320, 640, 768, 1024 and 1280px with a query and a status filter active, the search is at least 240px wide, the status menu at least 170px, and the page does not scroll sideways. |
+| R16-02 | Low | Each attendee-list request is numbered; only the latest one may set rows, totals or errors, so a slower response for a search since cleared, an earlier page or an earlier poll is ignored. Test: search "alice" (held) → Clear → the unfiltered list loads → the Alice response arrives and is ignored (fails on c0c4ae5). |
+| R16-03 | Low | Saved-pass lists also recheck deadlines when the tab becomes visible or the window gets focus, so a forward clock jump that the elapsed-time timer has not caught up with is applied on return; the snapshot stays the same array when nothing expired. Tests: wall clock moved two hours ahead without elapsed time, then `visibilitychange` → the expired pass is gone (fails on c0c4ae5); `focus` with nothing expired keeps the same array. |
+
+Also from this review: **Clear search** puts the focus back in the search field (test fails on c0c4ae5).
+
+Results: unit 159 / 159, integration 138 / 138, E2E 10 / 10.

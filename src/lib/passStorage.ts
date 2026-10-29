@@ -84,12 +84,22 @@ function subscribe(listener: () => void) {
   const onStorage = (e: StorageEvent) => {
     if (e.key === KEY || e.key === null) listener()
   }
+  // Timers count elapsed time, not the wall clock: after the device clock jumps
+  // forward, or when the tab comes back, recheck deadlines (R16-03). The snapshot
+  // stays the same array unless a pass actually expired.
+  const onReturn = () => {
+    if (document.visibilityState === 'visible') listener()
+  }
   listeners.add(listener)
   window.addEventListener('storage', onStorage)
+  window.addEventListener('focus', onReturn)
+  document.addEventListener('visibilitychange', onReturn)
   armExpiry()
   return () => {
     listeners.delete(listener)
     window.removeEventListener('storage', onStorage)
+    window.removeEventListener('focus', onReturn)
+    document.removeEventListener('visibilitychange', onReturn)
     if (listeners.size === 0) armExpiry()
   }
 }

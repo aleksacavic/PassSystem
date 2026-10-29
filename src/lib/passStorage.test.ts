@@ -65,6 +65,33 @@ describe('useStoredPasses retention (R15-01)', () => {
   })
 })
 
+describe('useStoredPasses after the clock jumps (R16-03)', () => {
+  it('rechecks deadlines when the tab becomes visible or focused', () => {
+    localStorage.setItem(KEY, JSON.stringify([pass('A', '2030-01-01T00:00:00Z')]))
+    vi.setSystemTime(new Date('2030-01-03T23:00:00Z')) // an hour before A expires
+    const { result } = renderHook(() => useStoredPasses())
+    expect(result.current.map((p) => p.token)).toEqual(['A'])
+
+    // The wall clock moves two hours ahead without that time elapsing for timers.
+    vi.setSystemTime(new Date('2030-01-04T01:00:00Z'))
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(result.current).toEqual([])
+  })
+
+  it('keeps the same array on focus when nothing expired', () => {
+    vi.setSystemTime(new Date('2030-01-01T00:00:00Z'))
+    localStorage.setItem(KEY, JSON.stringify([pass('A', '2030-01-02T00:00:00Z')]))
+    const { result } = renderHook(() => useStoredPasses())
+    const before = result.current
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(result.current).toBe(before)
+  })
+})
+
 describe('loadPasses', () => {
   it('ignores entries whose fields are not all strings, and non-array or broken JSON', () => {
     vi.setSystemTime(new Date('2030-01-01T00:00:00Z'))

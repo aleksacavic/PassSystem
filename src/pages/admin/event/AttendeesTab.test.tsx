@@ -180,3 +180,39 @@ describe('AttendeesTab search and filters', () => {
     expect(screen.getAllByRole('button', { name: 'Clear all' })).toHaveLength(2) // toolbar and empty state
   })
 })
+
+describe('AttendeesTab request order (R16-02)', () => {
+  it('a slower search response that arrives after Clear does not replace the cleared list', async () => {
+    let finishAlice!: (v: unknown) => void
+    api.listRegistrations.mockImplementation(({ search }: { search: string }) =>
+      search === 'alice'
+        ? new Promise((r) => (finishAlice = r))
+        : Promise.resolve({ rows: [guest('reg-B', 'Bob', 'registered')], total: 1 }),
+    )
+    render(<AttendeesTab event={event} onChanged={vi.fn()} />)
+    await flush()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search attendees' }), {
+      target: { value: 'alice' },
+    })
+    await act(async () => new Promise((r) => setTimeout(r, 300))) // the Alice request is in flight
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    await flush()
+    expect(screen.getAllByText(/Bob Guest/).length).toBeGreaterThan(0)
+
+    await act(async () => finishAlice({ rows: [guest('reg-A', 'Alice', 'registered')], total: 1 }))
+    await flush()
+    expect(screen.queryByText(/Alice Guest/)).toBeNull() // the old response was ignored
+    expect(screen.getAllByText(/Bob Guest/).length).toBeGreaterThan(0)
+  })
+
+  it('Clear search puts the cursor back in the search field', async () => {
+    api.listRegistrations.mockResolvedValue({ rows: [], total: 0 })
+    render(<AttendeesTab event={event} onChanged={vi.fn()} />)
+    await flush()
+    const box = screen.getByRole('searchbox', { name: 'Search attendees' })
+    fireEvent.change(box, { target: { value: 'x' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    expect(box).toHaveFocus()
+  })
+})
