@@ -272,3 +272,122 @@ describe('a camera switch that finishes late does not restart the camera (R6-01)
     expect(scanner.result.current.status).toBe('running')
   })
 })
+
+describe('callbacks that finish after the camera was stopped change nothing (R7-01, R7-02)', () => {
+  const TOKEN = 'ABCDEFGHJKMNPQRSTVWXYZ01'
+
+  function torchStream() {
+    const constraints = deferred<void>()
+    const track = {
+      stop: vi.fn(),
+      getSettings: () => ({}),
+      getCapabilities: () => ({ torch: true }),
+      applyConstraints: vi.fn(() => constraints.promise),
+    }
+    const stream = { getTracks: () => [track], getVideoTracks: () => [track] } as unknown as MediaStream
+    return { stream, track, constraints }
+  }
+
+  /** Running scanner whose first decode is still in progress. */
+  async function decoding() {
+    const onDetect = vi.fn()
+    const decode = deferred<string[]>()
+    const detect = vi
+      .fn()
+      .mockImplementationOnce(() => decode.promise)
+      .mockImplementation(() => new Promise(() => {}))
+    const view = renderHook(() => useCameraScanner({ onDetect }))
+    const video = {
+      srcObject: null,
+      muted: false,
+      readyState: 4,
+      videoWidth: 640,
+      setAttribute: () => undefined,
+      play: async () => undefined,
+    }
+    ;(view.result.current.videoRef as { current: unknown }).current = video
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockImplementation(async () => fakeStream().stream)
+    vi.mocked(navigator.mediaDevices.enumerateDevices).mockImplementation(async () => [])
+    detector.resolve({ kind: 'native', detect } as unknown as Detector)
+    await act(() => view.result.current.start())
+    expect(view.result.current.status).toBe('running')
+    expect(detect).toHaveBeenCalledTimes(1)
+    const finishDecode = async () => {
+      decode.resolve([TOKEN])
+      await flush()
+    }
+    return { ...view, onDetect, detect, finishDecode }
+  }
+
+  it('a decode that finishes after Stop delivers no pass', async () => {
+    const { result, onDetect, detect, finishDecode } = await decoding()
+    act(() => result.current.stop())
+    await finishDecode()
+    expect(onDetect).not.toHaveBeenCalled()
+    expect(detect).toHaveBeenCalledTimes(1) // and no further decode was scheduled
+  })
+
+  it('a decode that finishes after the page was hidden delivers no pass', async () => {
+    const { onDetect, finishDecode } = await decoding()
+    act(() => setVisibility('hidden'))
+    await finishDecode()
+    expect(onDetect).not.toHaveBeenCalled()
+  })
+
+  it('a decode that finishes after unmount delivers no pass', async () => {
+    const { unmount, onDetect, finishDecode } = await decoding()
+    unmount()
+    await finishDecode()
+    expect(onDetect).not.toHaveBeenCalled()
+  })
+
+  it("an old start's decode delivers nothing to the camera that replaced it", async () => {
+    const { result, onDetect, detect, finishDecode } = await decoding()
+    await act(() => result.current.start()) // replacement camera, its own decode starts
+    expect(detect).toHaveBeenCalledTimes(2)
+    await finishDecode()
+    expect(onDetect).not.toHaveBeenCalled()
+  })
+
+  it('a torch change that finishes after Stop leaves the torch off', async () => {
+    const { result, start, started } = mountScanner()
+    const torch = torchStream()
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockImplementationOnce(async () => torch.stream)
+    detector.resolve(fakeDetector)
+    cameras.resolve([])
+    start()
+    await started()
+    expect(result.current.torchSupported).toBe(true)
+    let toggling!: Promise<void>
+    act(() => {
+      toggling = result.current.toggleTorch()
+    })
+    act(() => result.current.stop())
+    torch.constraints.resolve()
+    await act(() => toggling)
+    expect(result.current.torchOn).toBe(false)
+  })
+
+  it("a torch failure on the old camera does not disable the new camera's torch", async () => {
+    const { result, start, started } = mountScanner()
+    const first = torchStream()
+    const second = torchStream()
+    vi.mocked(navigator.mediaDevices.getUserMedia)
+      .mockImplementationOnce(async () => first.stream)
+      .mockImplementationOnce(async () => second.stream)
+    detector.resolve(fakeDetector)
+    cameras.resolve([])
+    start()
+    await started()
+    let toggling!: Promise<void>
+    act(() => {
+      toggling = result.current.toggleTorch()
+    })
+    await act(() => result.current.start()) // replaced by the second camera
+    expect(result.current.torchSupported).toBe(true)
+    first.constraints.reject(new Error('torch failed'))
+    await act(() => toggling)
+    expect(result.current.torchSupported).toBe(true)
+    expect(result.current.torchOn).toBe(false)
+  })
+})

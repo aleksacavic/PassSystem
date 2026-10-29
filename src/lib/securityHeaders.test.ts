@@ -1,6 +1,7 @@
 // The production security headers, as generated and as deployed to every route (F-15, R4-07, R5-04).
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { parse as parseToml } from 'smol-toml'
 import { describe, expect, it } from 'vitest'
 import { PRODUCTION_SUPABASE_ORIGIN, securityHeaders } from '../../security-headers.mjs'
 
@@ -36,23 +37,23 @@ function vercelRules(json: string): Rule[] {
   })
 }
 
-/** Netlify `[[headers]]` blocks: a `for` glob and its `[headers.values]`. */
+/**
+ * Netlify `[[headers]]` blocks, read with a TOML parser (quoted keys and
+ * literal strings included): a `for` glob and its `values`. A value that is
+ * neither a string nor a list of strings fails the test instead of being skipped.
+ */
 function netlifyRules(toml: string): Rule[] {
-  return toml
-    .split(/^\[\[headers\]\]\s*$/m)
-    .slice(1)
-    .map((block) => {
-      const glob = /^\s*for\s*=\s*"(.*)"\s*$/m.exec(block)![1]!
-      const re = new RegExp(`^${glob.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`)
-      const values = block.split(/^\s*\[headers\.values\]\s*$/m)[1] ?? ''
-      return {
-        matches: (path) => re.test(path),
-        headers: [...values.matchAll(/^\s*([A-Za-z-]+)\s*=\s*"(.*)"\s*$/gm)].map((m): [string, string] => [
-          m[1]!.toLowerCase(),
-          m[2]!,
-        ]),
-      }
+  const config = parseToml(toml) as { headers?: { for: string; values?: Record<string, unknown> }[] }
+  return (config.headers ?? []).map((block) => {
+    const re = new RegExp(`^${block.for.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`)
+    const headers = Object.entries(block.values ?? {}).flatMap(([name, value]): [string, string][] => {
+      const values = Array.isArray(value) ? value : [value]
+      if (!values.every((v) => typeof v === 'string'))
+        throw new Error(`unsupported value for ${name} in netlify.toml`)
+      return values.map((v): [string, string] => [name.toLowerCase(), v])
     })
+    return { matches: (path) => re.test(path), headers }
+  })
 }
 
 /**
@@ -154,5 +155,18 @@ describe('production security headers', () => {
       'Cache-Control = "public, max-age=31536000, immutable"\n    x-frame-options = "SAMEORIGIN"',
     )
     expect(missingOrDifferent(netlifyRules(netlify))).toEqual(['/assets/index-abc123.js X-Frame-Options'])
+  })
+
+  it('reads every valid TOML form, so quoted keys and literal strings are checked too (R7-03)', () => {
+    const scoped = (line: string) =>
+      missingOrDifferent(
+        netlifyRules(
+          `${read('netlify.toml')}\n[[headers]]\n  for = "/scan/*"\n  [headers.values]\n    ${line}\n`,
+        ),
+      )
+    const scanner = ['/scan/0b6f3f7e-1a2b-4c3d-9e8f-001122334455 Content-Security-Policy']
+    expect(scoped(`"content-security-policy" = "default-src *"`)).toEqual(scanner)
+    expect(scoped(`content-security-policy = 'default-src *'`)).toEqual(scanner)
+    expect(scoped(`'Content-Security-Policy' = 'default-src *'`)).toEqual(scanner)
   })
 })

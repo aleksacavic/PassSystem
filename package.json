@@ -58,6 +58,7 @@
     "jsdom": "^29.1.1",
     "pg": "^8.23.1",
     "prettier": "^3.9.10",
+    "smol-toml": "1.9.0",
     "supabase": "^2.122.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0",

@@ -172,7 +172,7 @@ Findings from `docs/CODEX_REVIEW_6.md`. Frontend and test changes only; tests ar
 
 | ID | Severity | Fix |
 | --- | --- | --- |
-| R6-01 | Medium | `switchCamera` records the start generation before it lists the cameras and switches only if it is still current and the page is visible. Stop, hide, unmount and any newer start or switch advance the generation, so a switch whose camera list arrives late is dropped instead of restarting the camera. Tests (all four fail on the review 5 hook, on their assertions): Switch then Stop, Switch then hide, Switch then unmount, and two overlapping switches (only one new camera is opened). |
+| R6-01 | Medium | `switchCamera` records the start generation before it lists the cameras and switches only if it is still current and the page is visible. Stop, hide, unmount and any start (including the one a switch begins) advance the generation, so a switch whose camera list arrives late is dropped instead of restarting the camera. Of two pending switches, the first whose camera list arrives starts the new camera and the other is dropped (corrected in review 7: calling a switch does not by itself advance the generation). Tests (all four fail on the review 5 hook, on their assertions): Switch then Stop, Switch then hide, Switch then unmount, and two overlapping switches (only one new camera is opened). |
 | R6-02 | Low | The route-aware header checker lowercases field names (HTTP names are case-insensitive) and collects every value a route receives for each field instead of letting later rules overwrite earlier ones. A security field passes only if every value it gets on that route is the expected one, so a duplicate in any casing fails whatever the host does with repeated fields. Test: lowercase overrides on Vercel's scanner, asset and `index.html` rules and on Netlify's asset rule; it fails with the review 5 checker. |
 
 Documentation corrections from the same review:
@@ -189,3 +189,16 @@ Documentation corrections from the same review:
   use a coordinator whose exclusion lasts for the whole Auth operation.
 
 Results after this remediation: unit 99 / 99, integration 127 / 127, E2E 9 / 9.
+
+## Codex review 7 remediation (no migration)
+
+Findings from `docs/CODEX_REVIEW_7.md`. Frontend and test changes only; tests are in `src/scanner/useCameraScanner.test.ts`,
+`src/pages/scan/ScanPage.camera.test.tsx` (new) and `src/lib/securityHeaders.test.ts`.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R7-01 | Medium | Each decode loop belongs to the start (generation) that began it. A decode still in progress when that start is stopped, hidden, unmounted or replaced delivers no result and schedules no further decode, so it can neither send an admission after Stop nor attach a second loop to a replacement camera. Tests: a late decode after Stop, hide, unmount and replacement (hook), and the real scanner page with the real hook: Start, Stop, then the decode finishes, and no admission is sent (with a control in which the same decode, without Stop, is admitted). All fail on the review 6 hook except the control. |
+| R7-02 | Low | `toggleTorch` changes the torch state only if the same camera is still the active one (same generation and track), on success and on failure. Tests: a torch change finishing after Stop leaves the torch off; a torch failure on a replaced camera does not disable the new camera's torch. Both fail on the review 6 hook. |
+| R7-03 | Low | The Netlify side of the header checker reads `netlify.toml` with a TOML parser (`smol-toml`, dev dependency), so quoted keys and single-quoted literal strings are seen like any other field; a value that is neither a string nor a list of strings fails the test. Test: a scoped CSP override written with a quoted key, a literal string, and both with different casing; it fails with the review 6 checker. |
+
+Results after this remediation: unit 108 / 108, integration 127 / 127, E2E 9 / 9.

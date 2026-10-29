@@ -60,20 +60,25 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
     setTorchSupported(false)
   }, [])
 
-  // Decode loop: one detection at a time, then wait `intervalMs`.
-  const loopRef = useRef<() => void>(() => undefined)
+  // Decode loop: one detection at a time, then wait `intervalMs`. Each loop
+  // belongs to the start (generation) that began it: once that start is
+  // stopped, hidden, unmounted or replaced, a decode still in progress
+  // delivers nothing and schedules nothing.
+  const loopRef = useRef<(generation: number) => void>(() => undefined)
   useEffect(() => {
-    loopRef.current = () => {
-      if (!runningRef.current) return
+    loopRef.current = (generation) => {
+      const live = () => runningRef.current && generation === generationRef.current
+      if (!live()) return
       const video = videoRef.current
       const detector = detectorRef.current
       const next = () => {
-        if (runningRef.current) timerRef.current = window.setTimeout(() => loopRef.current(), intervalMs)
+        if (live()) timerRef.current = window.setTimeout(() => loopRef.current(generation), intervalMs)
       }
       if (!video || !detector || video.readyState < 2 || video.videoWidth === 0) return next()
       detector
         .detect(video)
         .then((values) => {
+          if (!live()) return
           for (const v of values) if (v) onDetectRef.current(v)
         })
         .catch(() => undefined)
@@ -144,7 +149,7 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
         setCameraCount(cameras)
         runningRef.current = true
         setStatus('running')
-        loopRef.current()
+        loopRef.current(generation)
       } catch (e) {
         if (!current()) return
         // A camera that answers after this failure is then stopped straight away.
@@ -188,12 +193,16 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
   const toggleTorch = useCallback(async () => {
     const track = streamRef.current?.getVideoTracks()[0]
     if (!track) return
+    const generation = generationRef.current
+    // Only for the same camera: a stop or a new start meanwhile has reset the torch state.
+    const current = () =>
+      generation === generationRef.current && streamRef.current?.getVideoTracks()[0] === track
     const next = !torchOn
     try {
       await track.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] })
-      setTorchOn(next)
+      if (current()) setTorchOn(next)
     } catch {
-      setTorchSupported(false)
+      if (current()) setTorchSupported(false)
     }
   }, [torchOn])
 
