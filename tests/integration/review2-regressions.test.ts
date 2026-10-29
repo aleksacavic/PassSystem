@@ -14,6 +14,7 @@ import {
   termsVersion,
   uid,
   type StaffUser,
+  setInviteRole,
 } from './helpers'
 
 let admin: StaffUser
@@ -44,7 +45,7 @@ describe('[R2-01] administrator invites are single-use', () => {
   it('a demoted invitee is not re-promoted by a later email change', async () => {
     const { data } = await service.auth.admin.createUser({ email: `r2-inv-${uid()}@passsystem.test` })
     const id = data.user!.id
-    expect((await service.rpc('set_pending_admin', { p_user_id: id, p_admin: true })).error).toBeNull()
+    expect((await setInviteRole(id, true)).error).toBeNull()
     await db(`update auth.users set email_confirmed_at = now() where id = $1`, [id]) // invite accepted
     expect(await isAdmin(id)).toBe(true)
     expect(await db(`select 1 from private.pending_admin_invites where user_id = $1`, [id])).toHaveLength(0)
@@ -60,7 +61,11 @@ describe('[R2-01] administrator invites are single-use', () => {
 
   it('only the service role can mark a pending administrator', async () => {
     const { data } = await service.auth.admin.createUser({ email: `r2-inv2-${uid()}@passsystem.test` })
-    const res = await admin.client.rpc('set_pending_admin', { p_user_id: data.user!.id, p_admin: true })
+    const res = await admin.client.rpc('set_pending_admin', {
+      p_user_id: data.user!.id,
+      p_admin: true,
+      p_generation: 1,
+    })
     expect(res.error).not.toBeNull()
     expect(
       await db(`select 1 from private.pending_admin_invites where user_id = $1`, [data.user!.id]),

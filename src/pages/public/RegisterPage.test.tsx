@@ -215,4 +215,28 @@ describe('RegisterPage', () => {
     view.unmount()
     localStorage.removeItem('passsystem.lang')
   })
+
+  it('never shows server text for an unknown error, and translates it again on a language switch (R4-04)', async () => {
+    vi.mocked(api.registerForEvent).mockRejectedValue(new ApiError('INTERNAL_REVIEW4_SENTINEL', 'XX000'))
+    localStorage.setItem('passsystem.lang', 'ar')
+    const view = render(
+      <MemoryRouter initialEntries={['/e/gala']}>
+        <LangProvider>
+          <Routes>
+            <Route path="/e/:slug" element={<RegisterPage />} />
+          </Routes>
+        </LangProvider>
+      </MemoryRouter>,
+    )
+    fireEvent.change(await screen.findByLabelText('الاسم الأول'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('اسم العائلة'), { target: { value: 'Test' } })
+    fireEvent.click(screen.getByRole('button', { name: 'احصل على تذكرتي' }))
+    expect(await screen.findByText('حدث خطأ ما. يرجى المحاولة مرة أخرى بعد قليل.')).toBeInTheDocument()
+    expect(screen.queryByText(/INTERNAL_REVIEW4_SENTINEL/)).toBeNull()
+
+    fireEvent.click(screen.getByTestId('lang-switch'))
+    expect(await screen.findByText('Something went wrong. Please try again in a moment.')).toBeInTheDocument()
+    view.unmount()
+    localStorage.removeItem('passsystem.lang')
+  })
 })

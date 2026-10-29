@@ -11,6 +11,7 @@ import {
   termsVersion,
   uid,
   type StaffUser,
+  setInviteRole,
 } from './helpers'
 
 let admin: StaffUser
@@ -98,7 +99,7 @@ describe('[R3-02] an administrator invite survives a concurrent acceptance', () 
     try {
       await accepter.query('begin')
       await accepter.query(`update auth.users set email_confirmed_at = now() where id = $1`, [id]) // trigger ran
-      const mark = service.rpc('set_pending_admin', { p_user_id: id, p_admin: true }).then((r) => r)
+      const mark = setInviteRole(id, true).then((r) => r)
       await waitingOn('%set_pending_admin%')
       await accepter.query('commit')
       const res = await mark
@@ -114,14 +115,12 @@ describe('[R3-02] an administrator invite survives a concurrent acceptance', () 
   it('reports queued, granted and unchanged outcomes', async () => {
     const { data } = await service.auth.admin.createUser({ email: `r3-out-${uid()}@passsystem.test` })
     const id = data.user!.id
-    expect((await service.rpc('set_pending_admin', { p_user_id: id, p_admin: true })).data).toBe('queued')
+    expect((await setInviteRole(id, true)).data).toBe('queued')
     await db(`update auth.users set email_confirmed_at = now() where id = $1`, [id])
     expect(await isAdmin(id)).toBe(true)
-    expect((await service.rpc('set_pending_admin', { p_user_id: id, p_admin: false })).data).toBe('unchanged')
+    expect((await setInviteRole(id, false)).data).toBe('unchanged')
     expect(await isAdmin(id)).toBe(true) // demotion goes through set_user_admin, not invites
-    expect(
-      (await service.rpc('set_pending_admin', { p_user_id: crypto.randomUUID(), p_admin: true })).data,
-    ).toBe('not_found')
+    expect((await setInviteRole(crypto.randomUUID(), true)).data).toBe('not_found')
   })
 })
 

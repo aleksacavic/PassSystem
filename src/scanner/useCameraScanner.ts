@@ -89,20 +89,26 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
       const generation = ++generationRef.current
       setStatus('starting')
       stopTracks()
-      let stream: MediaStream | null = null
+      const media = navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: deviceId
+          ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      })
+      // Stops the stream this start obtains unless it became the active one,
+      // also when the camera only answers after this start already failed.
+      const release = () => {
+        media.then(
+          (s) => {
+            if (streamRef.current !== s) s.getTracks().forEach((t) => t.stop())
+          },
+          () => undefined,
+        )
+      }
       try {
-        const [detector, obtained] = await Promise.all([
-          getQrDetector(),
-          navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: deviceId
-              ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-              : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
-          }),
-        ])
-        stream = obtained
+        const [detector, stream] = await Promise.all([getQrDetector(), media])
         if (generation !== generationRef.current) {
-          stream.getTracks().forEach((t) => t.stop())
+          release()
           return
         }
         detectorRef.current = detector
@@ -130,10 +136,8 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
         setStatus('running')
         loopRef.current()
       } catch (e) {
-        if (generation !== generationRef.current) {
-          stream?.getTracks().forEach((t) => t.stop())
-          return
-        }
+        release()
+        if (generation !== generationRef.current) return
         stopTracks()
         runningRef.current = false
         const name = (e as DOMException)?.name
@@ -212,6 +216,7 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
 
   useEffect(
     () => () => {
+      generationRef.current++
       runningRef.current = false
       stopTracks()
     },

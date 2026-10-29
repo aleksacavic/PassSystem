@@ -46,6 +46,7 @@ const en = {
   'error.phone': 'Enter the number with country code, e.g. +971 50 123 4567, or leave it empty.',
   'error.field': 'Please check this field.',
   'error.network': 'Network error. Check your connection and try again.',
+  'error.generic': 'Something went wrong. Please try again in a moment.',
   'error.rate_limited': 'Too many attempts from this network. Please wait a minute and try again.',
   'error.event_not_found': 'This event could not be found.',
   'error.registration_closed': 'Registration for this event is closed.',
@@ -137,6 +138,7 @@ const ar: Record<MessageKey, string> = {
   'error.phone': 'أدخل الرقم مع رمز الدولة، مثل ‎+971 50 123 4567، أو اتركه فارغاً.',
   'error.field': 'يرجى مراجعة هذا الحقل.',
   'error.network': 'خطأ في الاتصال. تحقق من الشبكة وحاول مرة أخرى.',
+  'error.generic': 'حدث خطأ ما. يرجى المحاولة مرة أخرى بعد قليل.',
   'error.rate_limited': 'محاولات كثيرة من هذه الشبكة. يرجى الانتظار دقيقة ثم المحاولة.',
   'error.event_not_found': 'تعذّر العثور على هذه الفعالية.',
   'error.registration_closed': 'التسجيل في هذه الفعالية مغلق.',
@@ -227,13 +229,16 @@ export function useT(): LangState {
   }
 }
 
-/** Guest-facing message for an API error code, falling back to the server's English text. */
+/**
+ * Guest-facing message for an API error code. Unknown codes get an approved
+ * generic message: server text (English, possibly diagnostic) is never shown.
+ */
 export function errorMessage(
   t: LangState['t'],
   code: string | null | undefined,
-  fallback: string | null | undefined,
+  fallback: MessageKey = 'error.generic',
 ): string {
   const key = `error.${code ?? ''}` as MessageKey
   if (code && key in en) return t(key)
-  return fallback || t('error.network')
+  return t(fallback)
 }

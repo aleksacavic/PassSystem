@@ -20,7 +20,7 @@ import { Alert, Badge, Button, Card, PageSpinner } from '../../components/ui'
 type State =
   | { kind: 'loading' }
   | { kind: 'missing' }
-  | { kind: 'error'; message: string; notFound: boolean }
+  | { kind: 'error'; code: string | null; notFound: boolean }
   | { kind: 'ready'; pass: PassView; event: PublicEvent }
 
 interface LocationState {
@@ -78,7 +78,7 @@ function PassPage() {
               ? prev // keep showing the pass if only a refresh failed
               : {
                   kind: 'error',
-                  message: errorMessage(t, err?.code, err?.message ?? t('pass.loadErrorBody')),
+                  code: err?.code ?? null,
                   notFound: err?.code === 'pass_not_found',
                 },
           )
@@ -90,8 +90,6 @@ function PassPage() {
       cancelled = true
       document.removeEventListener('visibilitychange', onVisible)
     }
-    // t only changes with the language; that must not refetch the pass.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, reloadKey])
 
   useEffect(() => {
@@ -125,7 +123,7 @@ function PassPage() {
       <PublicLayout>
         <Card className="p-6 text-center">
           <h1 className="text-xl font-bold">{state.notFound ? t('pass.notFound') : t('pass.loadError')}</h1>
-          <p className="mt-2 text-fg-muted">{state.message}</p>
+          <p className="mt-2 text-fg-muted">{errorMessage(t, state.code, 'pass.loadErrorBody')}</p>
           {!state.notFound && (
             <Button className="mt-5" onClick={retry}>
               {t('tryAgain')}

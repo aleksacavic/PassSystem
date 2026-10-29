@@ -113,3 +113,15 @@ export async function register(
 export async function admit(client: SupabaseClient, eventId: string, token: string) {
   return client.rpc('admit_pass', { p_event_id: eventId, p_token: token })
 }
+
+/** What invite-staff does: reserve the invite's generation, then save its role. */
+export async function setInviteRole(userId: string, admin: boolean) {
+  const rows = await db<{ email: string }>(`select email from auth.users where id = $1`, [userId])
+  let generation = 0
+  if (rows[0]) {
+    const reserved = await service.rpc('begin_invite', { p_email: rows[0].email })
+    if (reserved.error) throw reserved.error
+    generation = reserved.data as number
+  }
+  return service.rpc('set_pending_admin', { p_user_id: userId, p_admin: admin, p_generation: generation })
+}

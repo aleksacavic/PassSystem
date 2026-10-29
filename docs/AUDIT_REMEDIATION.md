@@ -105,3 +105,31 @@ Findings from `docs/CODEX_REVIEW_3.md`. Database fixes are in `supabase/migratio
 Rollout: apply 008, then deploy `invite-staff` right away, because 008 drops `mark_pending_admin`, which the previous function version calls. Then deploy the frontend (it calls `pending_admin_invites`). 008 doesn't change the `register_for_event` signature, so open registration pages keep working.
 
 Results after this remediation: unit 72 / 72, integration 116 / 116, E2E 9 / 9.
+
+## Codex review 4 remediation (migration 009)
+
+Findings from `docs/CODEX_REVIEW_4.md`. Database fixes are in `supabase/migrations/20261029000009_review4_remediation.sql`; tests are in
+`tests/integration/review4-regressions.test.ts`, `src/scanner/useCameraScanner.test.ts`, `src/lib/i18n.test.ts`,
+`src/pages/public/RegisterPage.test.tsx`, `src/lib/calendar.test.ts` and `src/lib/securityHeaders.test.ts`. Each test was run against the
+previous code (or that code's behaviour restored in the local database) and failed there.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R4-01 | Medium | Every invite reserves a generation for its email address (`begin_invite`) **before** Supabase Auth issues the link. `set_pending_admin(user, admin, generation, invited_by)` applies the role only while that generation is current; otherwise it returns `stale` and changes nothing, and `invite-staff` answers `409 invite_superseded` without a link. A queued promotion records its generation, and the acceptance trigger honours it only if it is still current. Demotion (`set_user_admin`) advances the generation, which voids every invite request still in flight. One lock order everywhere: admin lock → Auth user row → generation row → profile. Tests: both of Codex's interleavings, an invite's own late save after acceptance and demotion, a queued promotion overtaken by a newer accepted invite, and the real Edge Function held at the role step while a newer invite is reserved. |
+| R4-02 | Medium | The camera request is kept on its own. Whatever happens to a start (detector failure before or after the camera answers, a newer start, a stop), a stream it obtains is stopped unless it became the active one. Unmounting also advances the start generation. Tests cover both failure orders and unmounting mid-start. |
+| R4-03 | Medium | `validate_event` still refuses to change an event's creator, but now allows clearing it, so `ON DELETE SET NULL` works when the creator's account is deleted. The test deletes a demoted creator who also assigned staff and scanned a guest, and checks every column that references Auth users. |
+| R4-04 | Low | Unknown API error codes show an approved, translated generic message (`error.generic`); server text is never rendered on guest pages. The registration and pass pages store the error code and translate it when shown, so switching language updates it. |
+| R4-05 | Low | Calendar text turns CRLF, lone CR and LF into an escaped newline and drops the other control characters that iCalendar TEXT values cannot contain. |
+| R4-06 | Low | 003-era retries compare the stored names after NFC normalization, so a name stored with a decomposed accent replays its existing registration. |
+| R4-07 | Low | `src/lib/securityHeaders.test.ts` asserts the default `connect-src` (only `'self'` and the pinned project), the absence of wildcard, scheme-wide and WebSocket sources, and that `vercel.json` and `netlify.toml` deploy exactly the generated headers. All three cases fail with the `9918dc4` generator. The browser workflow keeps its no-violations check. |
+
+Rollout: apply 009, then deploy `invite-staff` right away. 009 replaces `set_pending_admin` with a four-argument version, so the function
+currently deployed (v7) can't save roles until it's updated: an administrator invite is then sent as a staff invite with a warning, as before 008's
+deploy. Then deploy the frontend. 009 doesn't change the `register_for_event` signature.
+
+Codex's residual risks, unchanged by this round: F-03 stays partial (no CAPTCHA, no protection against rotating networks), F-16 stays deferred (see
+below), and F-12 is a convenience filter, not identity separation on a shared browser. "Forget this pass" only removes it from the device; the pass
+itself stays valid. Deleting a staff account removes their access (RLS and Auth), but that is not the same as a general remote sign-out or a
+non-destructive disable, which F-16 would add. Hosted `cf-connecting-ip` trust still needs to be confirmed with a non-browser request.
+
+Results after this remediation: unit 86 / 86, integration 124 / 124, E2E 9 / 9.

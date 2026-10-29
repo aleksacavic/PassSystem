@@ -25,7 +25,7 @@ import { Alert, Button, Card, Field, Input, PageSpinner } from '../../components
 
 type LoadState =
   | { kind: 'loading' }
-  | { kind: 'error'; message: string; code: string | null; notFound: boolean }
+  | { kind: 'error'; code: string | null; notFound: boolean }
   | { kind: 'ready'; event: PublicEvent; state: RegistrationState }
 
 const NAME_MESSAGES: Record<NameProblem, MessageKey> = {
@@ -44,6 +44,7 @@ export default function RegisterPage() {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', website: '' })
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [errors, setErrors] = useState<RegistrationErrors & { terms?: string }>({})
+  // An error code, translated when shown, so switching language updates it.
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [existing] = useState<StoredPass[]>(() => passesForEvent(slug))
@@ -63,16 +64,13 @@ export default function RegisterPage() {
         const err = e instanceof ApiError ? e : null
         setLoad({
           kind: 'error',
-          message: err?.message ?? t('error.network'),
-          code: err?.code ?? null,
+          code: err ? (err.code ?? null) : 'network',
           notFound: err?.code === 'event_not_found',
         })
       })
     return () => {
       cancelled = true
     }
-    // t only changes with the language; the effect must not refetch for that.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, reloadKey])
 
   useEffect(() => {
@@ -124,7 +122,7 @@ export default function RegisterPage() {
         // The organizer may have just switched terms on or edited them: show the
         // current text and ask for a fresh acceptance.
         setAcceptTerms(false)
-        setErrors({ terms: errorMessage(t, apiErr.code, apiErr.message) })
+        setErrors({ terms: errorMessage(t, apiErr.code) })
         setReloadKey((k) => k + 1)
       } else if (apiErr?.code === 'invalid_input' && apiErr.field && apiErr.field !== 'form') {
         const fields: Record<string, keyof RegistrationErrors> = {
@@ -135,7 +133,7 @@ export default function RegisterPage() {
         }
         setErrors({ [fields[apiErr.field] ?? 'firstName']: t('error.field') })
       } else {
-        setSubmitError(apiErr ? errorMessage(t, apiErr.code, apiErr.message) : t('error.network'))
+        setSubmitError(apiErr ? (apiErr.code ?? 'generic') : 'network')
       }
       if (apiErr?.code === 'duplicate_request') requestId.current = randomUuid()
       if (
@@ -164,7 +162,7 @@ export default function RegisterPage() {
         <Card className="p-6 text-center">
           <h1 className="text-xl font-bold">{load.notFound ? t('event.notFound') : t('event.error')}</h1>
           <p className="mt-2 text-fg-muted">
-            {load.notFound ? t('event.notFoundBody') : errorMessage(t, load.code, load.message)}
+            {load.notFound ? t('event.notFoundBody') : errorMessage(t, load.code)}
           </p>
           {!load.notFound && (
             <Button className="mt-5" onClick={() => setReloadKey((k) => k + 1)}>
@@ -361,7 +359,10 @@ export default function RegisterPage() {
               </div>
             )}
             {/* Honeypot: hidden from people and assistive tech, bots tend to fill it. */}
-            <div aria-hidden="true" className="pointer-events-none fixed top-0 left-0 size-px overflow-hidden opacity-0">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none fixed top-0 left-0 size-px overflow-hidden opacity-0"
+            >
               <label>
                 Website
                 <input
@@ -373,7 +374,7 @@ export default function RegisterPage() {
                 />
               </label>
             </div>
-            {submitError && <Alert tone="bad">{submitError}</Alert>}
+            {submitError && <Alert tone="bad">{errorMessage(t, submitError)}</Alert>}
             <div className="sticky bottom-0 -mx-4 bg-linear-to-t from-canvas from-70% to-transparent px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <Button type="submit" size="lg" block icon={Ticket} loading={submitting}>
                 {submitting ? t('form.submitting') : t('form.submit')}

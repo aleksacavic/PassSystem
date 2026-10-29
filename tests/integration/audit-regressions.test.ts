@@ -16,6 +16,7 @@ import {
   service,
   type StaffUser,
   termsVersion,
+  setInviteRole,
 } from './helpers'
 
 let admin: StaffUser
@@ -315,9 +316,7 @@ describe('[F-08] only confirmed accounts become staff', () => {
   it('a pending administrator invite is granted only when the invite is accepted', async () => {
     const email = `aud-pending-${randomUUID().slice(0, 8)}@passsystem.test`
     const { data } = await service.auth.admin.createUser({ email, email_confirm: false })
-    expect(
-      (await service.rpc('set_pending_admin', { p_user_id: data.user!.id, p_admin: true })).error,
-    ).toBeNull()
+    expect((await setInviteRole(data.user!.id, true)).error).toBeNull()
     expect((await db(`select is_admin from profiles where id = $1`, [data.user!.id]))[0]!.is_admin).toBe(
       false,
     )

@@ -32,6 +32,22 @@ describe('buildIcs', () => {
     expect(unfolded).toContain(`DESCRIPTION:${'x'.repeat(200)}`)
   })
 
+  it('escapes every newline form and drops other control characters (R4-05)', () => {
+    const ics = buildIcs({
+      ...base,
+      title: 'أمسية\rمراجعة',
+      location: 'Hall A\r\nGate 3\nDoor\u0007 7, left',
+      description: 'Line one\rLine\ttwo',
+    })
+    // The only carriage returns left are the CRLF line delimiters.
+    // eslint-disable-next-line no-control-regex
+    expect(ics.replace(/\r\n/g, '')).not.toMatch(/[\r\u0000-\u0008\u000b-\u001f\u007f]/)
+    const unfolded = ics.replace(/\r\n /g, '')
+    expect(unfolded).toContain('SUMMARY:أمسية\\nمراجعة')
+    expect(unfolded).toContain('LOCATION:Hall A\\nGate 3\\nDoor 7\\, left')
+    expect(unfolded).toContain('DESCRIPTION:Line one\\nLine\ttwo')
+  })
+
   it('folds multi-byte text without splitting characters', () => {
     const ics = buildIcs({ ...base, title: 'أمسية الخريف '.repeat(8) })
     const unfolded = ics.replace(/\r\n /g, '')

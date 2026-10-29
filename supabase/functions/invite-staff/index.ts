@@ -84,6 +84,20 @@ Deno.serve(async (req) => {
   const byLink = body.delivery === 'link'
   if (byLink && !redirectTo) return fail(400, 'invalid_input', 'Missing site address for the invite link.')
 
+  // Reserve this invite's generation before Auth issues its link. The role is
+  // saved against it below and only takes effect while it is the latest invite
+  // for the address (no newer invite, no demotion in between).
+  const genRes = await fetch(`${url}/rest/v1/rpc/begin_invite`, {
+    method: 'POST',
+    headers: serviceHeaders(supa),
+    body: JSON.stringify({ p_email: email }),
+  })
+  const generation = genRes.ok ? ((await genRes.json().catch(() => null)) as unknown) : null
+  if (typeof generation !== 'number') {
+    console.error('reserving the invite failed', genRes.status)
+    return fail(502, 'invite_failed', 'The invite could not be created. Try again later.')
+  }
+
   let inviteRes: Response
   if (byLink) {
     inviteRes = await fetch(`${url}/auth/v1/admin/generate_link`, {
@@ -146,9 +160,23 @@ Deno.serve(async (req) => {
   const roleRes = await fetch(`${url}/rest/v1/rpc/set_pending_admin`, {
     method: 'POST',
     headers: serviceHeaders(supa),
-    body: JSON.stringify({ p_user_id: invitedId, p_admin: makeAdmin, p_invited_by: caller.id }),
+    body: JSON.stringify({
+      p_user_id: invitedId,
+      p_admin: makeAdmin,
+      p_generation: generation,
+      p_invited_by: caller.id,
+    }),
   })
   const outcome = roleRes.ok ? ((await roleRes.json().catch(() => null)) as string | null) : null
+  if (outcome === 'stale') {
+    // A newer invite (or a change of rights) for this person won; its role
+    // applies. This request's link is not handed out.
+    return fail(
+      409,
+      'invite_superseded',
+      'Another invite for this person was sent at the same time. Check the staff list before inviting again.',
+    )
+  }
   if (!outcome || outcome === 'not_found') {
     console.error('setting the invite role failed', roleRes.status, outcome)
     return reply(200, {

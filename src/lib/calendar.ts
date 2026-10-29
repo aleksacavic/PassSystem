@@ -12,9 +12,21 @@ export interface CalendarEvent {
   url?: string
 }
 
-/** RFC 5545 text escaping. */
+/**
+ * RFC 5545 text escaping. Every line break (CRLF, CR or LF) becomes an escaped \n, and
+ * other control characters, which TEXT values cannot contain, are dropped.
+ */
 function escapeText(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
+  return (
+    value
+      .replace(/\r\n?|\n/g, '\n')
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '')
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\n/g, '\\n')
+  )
 }
 
 function utcStamp(iso: string): string {

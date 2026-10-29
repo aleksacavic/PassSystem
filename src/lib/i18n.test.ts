@@ -9,10 +9,12 @@ describe('translate', () => {
     expect(translate('ar', 'event.viewPass', { name: 'Ana' })).toBe('عرض تذكرة Ana')
   })
 
-  it('maps API error codes to guest messages and falls back to the server text', () => {
+  it('maps API error codes to guest messages and never shows server text (R4-04)', () => {
     const t = (key: Parameters<typeof translate>[1]) => translate('ar', key)
-    expect(errorMessage(t, 'event_full', 'x')).toBe('وصلت هذه الفعالية إلى الحد الأقصى من الحضور.')
-    expect(errorMessage(t, 'something_new', 'Server says no')).toBe('Server says no')
-    expect(errorMessage(t, null, null)).toBe(translate('ar', 'error.network'))
+    expect(errorMessage(t, 'event_full')).toBe('وصلت هذه الفعالية إلى الحد الأقصى من الحضور.')
+    expect(errorMessage(t, 'XX000')).toBe(translate('ar', 'error.generic'))
+    expect(errorMessage(t, null)).toBe(translate('ar', 'error.generic'))
+    expect(errorMessage(t, 'XX000', 'pass.loadErrorBody')).toBe(translate('ar', 'pass.loadErrorBody'))
+    expect(errorMessage(t, 'network')).toBe(translate('ar', 'error.network'))
   })
 })
