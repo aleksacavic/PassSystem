@@ -273,6 +273,26 @@ export async function listAdmissionLogs(eventId: string, limit = 50): Promise<Ad
   return (data ?? []) as AdmissionLog[]
 }
 
+/** When every admitted scan of an event happened, oldest first (for the scan activity chart). */
+export async function listAdmittedScanTimes(eventId: string): Promise<string[]> {
+  const all: string[] = []
+  const pageSize = 1000
+  for (let page = 0; ; page++) {
+    const { data, error } = await supabase
+      .from('admission_logs')
+      .select('attempted_at')
+      .eq('event_id', eventId)
+      .eq('result', 'admitted')
+      .order('attempted_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(page * pageSize, page * pageSize + pageSize - 1)
+    if (error) fail(error)
+    all.push(...((data ?? []) as { attempted_at: string }[]).map((r) => r.attempted_at))
+    if (!data || data.length < pageSize) break
+  }
+  return all
+}
+
 /** Names for a set of registration ids (for the activity log). */
 export async function registrationNames(ids: string[]): Promise<Map<string, string>> {
   const map = new Map<string, string>()

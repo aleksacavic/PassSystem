@@ -222,6 +222,13 @@ test('organizer → attendee → operator camera scan → event isolation → re
   await org.goto(`/admin/events/${eventA.id}?tab=activity`)
   await expect(org.getByText('Admitted', { exact: true })).toBeVisible()
   await expect(org.getByText('Already used', { exact: true })).toBeVisible()
+  await expect(org.getByRole('tab', { name: 'Scan activity' })).toHaveAttribute('aria-selected', 'true')
+  // Check-in history counts the one admitted scan, not the refused repeat.
+  await org.getByRole('button', { name: /Check-in history/ }).click()
+  await expect(org.getByText(/check-in · busiest hour/)).toBeVisible()
+  await expect(org.getByTestId('history-bar')).toHaveCount(1)
+  await expect(org.getByTestId('history-bar').first()).toHaveAttribute('aria-label', /: 1$/)
+  await org.screenshot({ path: join(ART, 'scan-history.png'), fullPage: false })
 
   expect(cspViolations).toEqual([])
 })

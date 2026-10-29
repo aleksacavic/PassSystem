@@ -358,3 +358,17 @@ Findings from `docs/CODEX_REVIEW_16.md`. Frontend only.
 Also from this review: **Clear search** puts the focus back in the search field (test fails on c0c4ae5).
 
 Results: unit 159 / 159, integration 138 / 138, E2E 10 / 10.
+
+## Owner request: check-in history chart on Scan activity (no migration)
+
+- The Scan activity tab starts with a collapsible **Check-in history** section, the same panel as Registration history:
+  admitted scans (people let in) per hour or per day in the event's time zone, the busiest period, a hover readout and a
+  table view. Refused or repeated scans are not counted; they stay in the list below.
+- The panel is now shared (`src/pages/admin/event/HistoryPanel.tsx`, taking a title, a loader and wording);
+  `RegistrationHistory` and `ScanHistory` are thin wrappers. New `listAdmittedScanTimes(eventId)` in `src/lib/api.ts`
+  pages through every admitted scan's `attempted_at` (the Scan activity list itself still shows the latest 100).
+- Tests: `src/pages/admin/event/ScanHistory.test.tsx` (loads on open, check-ins per hour in Asia/Dubai, table header,
+  empty state); the main E2E workflow opens Check-in history after the scan and checks it counts the one admitted scan
+  and not the refused repeat.
+
+Results: unit 161 / 161, integration 138 / 138, E2E 10 / 10.
