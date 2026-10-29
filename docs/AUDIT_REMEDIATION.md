@@ -144,15 +144,15 @@ Findings from `docs/CODEX_REVIEW_5.md`. The database change is `supabase/migrati
 
 | ID | Severity | Fix |
 | --- | --- | --- |
-| R5-01 | Medium | One invite at a time per address. `begin_invite` now also takes a 10-minute lease on the address (longer than an Edge Function request may run) and returns null while another invite holds it; `invite-staff` then answers `409 invite_in_progress` ("being sent right now, try again in a minute"). `set_pending_admin` releases the lease in the same transaction that saves the role, and `invite-staff` calls `end_invite` in a `finally` for every other way a request ends. An older request can therefore no longer reach Auth after a newer one and replace the token of a link already handed out. The 009 generation fence stays as a second line of defence (a request that outlives its lease, or a demotion during an invite, still ends as `stale`). Test: the real Edge Function is held **before** Auth issues its token (the account row is locked); a second invite is refused within 5 seconds, and the first link is then accepted with the first invite's role. |
+| R5-01 | Medium | One invite at a time per address. `begin_invite` now also takes a 10-minute lease on the address (longer than an Edge Function request may run) and returns null while another invite holds it; `invite-staff` then answers `409 invite_in_progress` ("being sent right now, try again in a minute"). `set_pending_admin` releases the lease in the same transaction that saves the role, and `invite-staff` calls `end_invite` in a `finally` for every other way a request ends. An older request can therefore no longer reach Auth after a newer one and replace the token of a link already handed out. The 009 generation fence stays as a second line of defence **for the role only** (a request that outlives its lease, or a demotion during an invite, still ends as `stale` and saves nothing); it cannot stop such a request from replacing the Auth token, so the token is protected only while requests cannot outlive the lease (see review 6 below). Test: the real Edge Function is held **before** Auth issues its token (the account row is locked); a second invite is refused within 5 seconds, and the first link is then accepted with the first invite's role. |
 | R5-02 | Medium | The scanner tracks a camera stream the moment the camera answers, before the detector is ready, and stops it on any cancellation. Hiding the page cancels a start in progress, not only a running scanner. After every wait (detector and camera, video playback, camera list) a start checks that it is still current before changing anything. A failed start advances the generation, so a camera that answers afterwards is stopped at once. Tests: Stop while the detector loads (stopped without waiting for it), hide during startup, Stop while the camera list loads, unmount before the camera answers; plus guards for overlapping starts and unmounting while the camera list loads. |
 | R5-03 | Low | Field and terms errors on the registration page are stored as message keys and translated when shown, like the other errors, so switching language updates them. Test: a validation error and a server `terms_changed`, each followed by a language switch. |
 | R5-04 | Low | `src/lib/securityHeaders.test.ts` parses the Vercel and Netlify rules with their paths and checks the headers each route actually receives (guest, staff, scanner, `index.html`, assets). A narrowed rule or a later rule that loosens one route now fails; the test checks that it notices both. Codex's two path mutations fail it. |
 
 Corrections to the review 4 notes, from the same review: the lock order is per path, not one order for every path (it is spelled out in
-010's header). No pair of locks is taken in opposite orders: `set_pending_admin` takes admin lock → Auth row → generation → profile;
-`set_user_admin` admin lock → profile → generation; acceptance Auth row → profile → generation (share); `begin_invite` and `end_invite`
-only the generation row.
+010's header): `set_pending_admin` takes admin lock → Auth row → generation → profile; `set_user_admin` admin lock → profile → generation;
+acceptance Auth row → profile → generation (share); `begin_invite` and `end_invite` only the generation row. (Corrected again in review 6:
+see the lock note there.)
 
 Rollout: apply 010, then deploy `invite-staff` right away (it calls `end_invite`, added by 010). 010 keeps every signature that
 `invite-staff` v8 uses, so invites keep working in between; but v8 never releases a lease when Auth refuses an invite, so in that gap such
@@ -164,3 +164,28 @@ Codex's path mutations). Guards that already passed before: the R5-01 privilege 
 unmount-during-camera-list scanner tests.
 
 Results after this remediation: unit 94 / 94, integration 127 / 127, E2E 9 / 9.
+
+## Codex review 6 remediation (no migration)
+
+Findings from `docs/CODEX_REVIEW_6.md`. Frontend and test changes only; tests are in `src/scanner/useCameraScanner.test.ts` and
+`src/lib/securityHeaders.test.ts`.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R6-01 | Medium | `switchCamera` records the start generation before it lists the cameras and switches only if it is still current and the page is visible. Stop, hide, unmount and any newer start or switch advance the generation, so a switch whose camera list arrives late is dropped instead of restarting the camera. Tests (all four fail on the review 5 hook, on their assertions): Switch then Stop, Switch then hide, Switch then unmount, and two overlapping switches (only one new camera is opened). |
+| R6-02 | Low | The route-aware header checker lowercases field names (HTTP names are case-insensitive) and collects every value a route receives for each field instead of letting later rules overwrite earlier ones. A security field passes only if every value it gets on that route is the expected one, so a duplicate in any casing fails whatever the host does with repeated fields. Test: lowercase overrides on Vercel's scanner, asset and `index.html` rules and on Netlify's asset rule; it fails with the review 5 checker. |
+
+Documentation corrections from the same review:
+
+- **Lock order.** The sentence "no two paths take a pair in opposite orders" (010's header and the review 5 notes) is wrong:
+  `set_pending_admin` takes generation → profile, while acceptance and `set_user_admin` take profile → generation. They cannot deadlock
+  because each such pair is already serialized by a lock both take first: `set_pending_admin` and acceptance both start with the
+  account's Auth row, and `set_pending_admin` and `set_user_admin` both start with the admin lock. Acceptance and `set_user_admin` take
+  profile → generation in the same order. `begin_invite` and `end_invite` take only the generation row. 010's comment is left as applied;
+  this note supersedes it.
+- **Lease lifetime.** Token safety relies on no request outliving its 10-minute lease. Supabase documents a wall-clock limit of 150 s
+  (Free) and 400 s (paid) per Edge Function request, well under it. That does not prove how long an Auth request already sent keeps
+  running after a worker is stopped. If the limits change, the function is self-hosted, or invites are retried or queued, revisit this or
+  use a coordinator whose exclusion lasts for the whole Auth operation.
+
+Results after this remediation: unit 99 / 99, integration 127 / 127, E2E 9 / 9.

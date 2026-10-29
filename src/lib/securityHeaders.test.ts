@@ -17,7 +17,8 @@ const read = (file: string) => readFileSync(resolve(root, file), 'utf8')
 
 interface Rule {
   matches: (path: string) => boolean
-  headers: Record<string, string>
+  /** [field name in lower case (HTTP names are case-insensitive), value] */
+  headers: [string, string][]
 }
 
 /** Vercel `source` patterns (path-to-regexp): `:name*`, `:name` and raw regex groups. */
@@ -30,7 +31,7 @@ function vercelRules(json: string): Rule[] {
     const re = new RegExp(`^${pattern}$`)
     return {
       matches: (path) => re.test(path),
-      headers: Object.fromEntries(rule.headers.map((h) => [h.key, h.value])),
+      headers: rule.headers.map((h): [string, string] => [h.key.toLowerCase(), h.value]),
     }
   })
 }
@@ -46,16 +47,25 @@ function netlifyRules(toml: string): Rule[] {
       const values = block.split(/^\s*\[headers\.values\]\s*$/m)[1] ?? ''
       return {
         matches: (path) => re.test(path),
-        headers: Object.fromEntries(
-          [...values.matchAll(/^\s*([A-Za-z-]+)\s*=\s*"(.*)"\s*$/gm)].map((m) => [m[1]!, m[2]!]),
-        ),
+        headers: [...values.matchAll(/^\s*([A-Za-z-]+)\s*=\s*"(.*)"\s*$/gm)].map((m): [string, string] => [
+          m[1]!.toLowerCase(),
+          m[2]!,
+        ]),
       }
     })
 }
 
-/** Headers a request for `path` receives: every matching rule applies, later ones win. */
-const effective = (rules: Rule[], path: string) =>
-  Object.assign({}, ...rules.filter((r) => r.matches(path)).map((r) => r.headers)) as Record<string, string>
+/**
+ * Every value each field gets on `path`, from all matching rules. Hosts differ
+ * in how they combine a field set twice (override, append), so a security
+ * field must not be set to anything but the expected value on any route.
+ */
+function effective(rules: Rule[], path: string) {
+  const fields = new Map<string, string[]>()
+  for (const rule of rules.filter((r) => r.matches(path)))
+    for (const [name, value] of rule.headers) fields.set(name, [...(fields.get(name) ?? []), value])
+  return fields
+}
 
 // Guest, staff and scanner routes, and the static files they load.
 const PATHS = [
@@ -77,8 +87,10 @@ function missingOrDifferent(rules: Rule[]) {
   const problems: string[] = []
   for (const path of PATHS) {
     const got = effective(rules, path)
-    for (const [key, value] of Object.entries(expected))
-      if (got[key] !== value) problems.push(`${path} ${key}`)
+    for (const [key, value] of Object.entries(expected)) {
+      const values = got.get(key.toLowerCase()) ?? []
+      if (values.length === 0 || values.some((v) => v !== value)) problems.push(`${path} ${key}`)
+    }
   }
   return problems
 }
@@ -123,5 +135,24 @@ describe('production security headers', () => {
     expect(missingOrDifferent(vercelRules(JSON.stringify(config)))).toEqual([
       '/scan/0b6f3f7e-1a2b-4c3d-9e8f-001122334455 Content-Security-Policy',
     ])
+  })
+
+  it('treats field names case-insensitively, so a differently cased override is noticed too (R6-02)', () => {
+    const loosen = (source: string) => {
+      const config = JSON.parse(read('vercel.json')) as { headers: unknown[] }
+      config.headers.push({ source, headers: [{ key: 'content-security-policy', value: 'default-src *' }] })
+      return missingOrDifferent(vercelRules(JSON.stringify(config)))
+    }
+    expect(loosen('/scan/:id')).toEqual([
+      '/scan/0b6f3f7e-1a2b-4c3d-9e8f-001122334455 Content-Security-Policy',
+    ])
+    expect(loosen('/assets/(.*)')).toEqual(['/assets/index-abc123.js Content-Security-Policy'])
+    expect(loosen('/index.html')).toEqual(['/index.html Content-Security-Policy'])
+
+    const netlify = read('netlify.toml').replace(
+      'Cache-Control = "public, max-age=31536000, immutable"',
+      'Cache-Control = "public, max-age=31536000, immutable"\n    x-frame-options = "SAMEORIGIN"',
+    )
+    expect(missingOrDifferent(netlifyRules(netlify))).toEqual(['/assets/index-abc123.js X-Frame-Options'])
   })
 })

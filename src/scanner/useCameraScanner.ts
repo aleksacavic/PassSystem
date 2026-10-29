@@ -198,8 +198,12 @@ export function useCameraScanner({ onDetect, intervalMs = 120 }: Options) {
   }, [torchOn])
 
   const switchCamera = useCallback(async () => {
+    // A Stop, hide, unmount or newer start while the camera list loads
+    // advances the generation: the switch is then dropped.
+    const generation = generationRef.current
     try {
       const devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput')
+      if (generation !== generationRef.current || document.visibilityState === 'hidden') return
       if (devices.length < 2) return
       const current = streamRef.current?.getVideoTracks()[0]?.getSettings().deviceId
       const idx = devices.findIndex((d) => d.deviceId === current)

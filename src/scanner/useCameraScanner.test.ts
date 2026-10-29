@@ -179,3 +179,96 @@ describe('useCameraScanner releases the camera', () => {
     expect(track.stop).toHaveBeenCalledTimes(1) // the detector is still loading
   })
 })
+
+describe('a camera switch that finishes late does not restart the camera (R6-01)', () => {
+  // Start successfully with two cameras, then begin a switch whose camera list is still loading.
+  async function runningWithPendingSwitch() {
+    const scanner = mountScanner()
+    const firstStream = fakeStream()
+    const listing = deferred<MediaDeviceInfo[]>()
+    const second = deferred<MediaStream>()
+    const two = [
+      { kind: 'videoinput', deviceId: 'back' },
+      { kind: 'videoinput', deviceId: 'front' },
+    ] as MediaDeviceInfo[]
+    vi.mocked(navigator.mediaDevices.enumerateDevices)
+      .mockImplementationOnce(async () => two) // during start
+      .mockImplementationOnce(() => listing.promise) // during the switch
+      .mockImplementation(async () => two) // any later start
+    vi.mocked(navigator.mediaDevices.getUserMedia)
+      .mockImplementationOnce(async () => firstStream.stream)
+      .mockImplementationOnce(() => second.promise)
+    detector.resolve(fakeDetector)
+    scanner.start()
+    await scanner.started()
+    expect(scanner.result.current.status).toBe('running')
+    let switching!: Promise<void>
+    act(() => {
+      switching = scanner.result.current.switchCamera()
+    })
+    const finishSwitch = async () => {
+      listing.resolve(two)
+      const late = fakeStream()
+      second.resolve(late.stream)
+      await act(() => switching)
+      await flush()
+      return late
+    }
+    return { ...scanner, finishSwitch }
+  }
+
+  it('after Stop', async () => {
+    const { result, finishSwitch } = await runningWithPendingSwitch()
+    act(() => result.current.stop())
+    const late = await finishSwitch()
+    expect(result.current.status).toBe('idle')
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1) // no new camera request
+    expect(late.track.stop).not.toHaveBeenCalled() // it was never opened
+  })
+
+  it('after the page is hidden', async () => {
+    const { result, finishSwitch } = await runningWithPendingSwitch()
+    act(() => setVisibility('hidden'))
+    await finishSwitch()
+    expect(result.current.status).toBe('idle')
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1)
+  })
+
+  it('after the page goes away', async () => {
+    const { unmount, finishSwitch } = await runningWithPendingSwitch()
+    unmount()
+    await finishSwitch()
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1)
+  })
+
+  it('when a second switch overtakes it, only one new camera is opened', async () => {
+    const scanner = mountScanner()
+    const two = [
+      { kind: 'videoinput', deviceId: 'back' },
+      { kind: 'videoinput', deviceId: 'front' },
+    ] as MediaDeviceInfo[]
+    const firstList = deferred<MediaDeviceInfo[]>()
+    const secondList = deferred<MediaDeviceInfo[]>()
+    vi.mocked(navigator.mediaDevices.enumerateDevices)
+      .mockImplementationOnce(async () => two)
+      .mockImplementationOnce(() => firstList.promise)
+      .mockImplementationOnce(() => secondList.promise)
+      .mockImplementation(async () => two)
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockImplementation(async () => fakeStream().stream)
+    detector.resolve(fakeDetector)
+    scanner.start()
+    await scanner.started()
+    let a!: Promise<void>, b!: Promise<void>
+    act(() => {
+      a = scanner.result.current.switchCamera()
+      b = scanner.result.current.switchCamera()
+    })
+    secondList.resolve(two) // the later switch wins and starts the new camera
+    await act(() => b)
+    firstList.resolve(two)
+    await act(() => a)
+    await flush()
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(2) // initial start + one switch
+    expect(scanner.result.current.status).toBe('running')
+  })
+})
