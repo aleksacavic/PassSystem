@@ -48,6 +48,12 @@ async function issueLink(email: string) {
 const saveRole = async (userId: string, admin: boolean, generation: number) =>
   (await service.rpc('set_pending_admin', { p_user_id: userId, p_admin: admin, p_generation: generation }))
     .data as string
+// Since 010 a second invite waits for the first; these schedules arise only if a
+// request outlives its reservation, which this simulates.
+const outliveLease = (email: string) =>
+  db(`update private.invite_generations set lease_until = now() - interval '1 second' where email = $1`, [
+    email,
+  ])
 const accept = async (tokenHash: string) =>
   (await anonClient().auth.verifyOtp({ type: 'invite', token_hash: tokenHash })).error
 
@@ -56,6 +62,7 @@ describe('[R4-01] a stale invite request cannot override a newer role or a demot
     const email = `r4-a-${uid()}@passsystem.test`
     const genA = await reserve(email)
     const a = await issueLink(email) // administrator invite A, paused before saving its role
+    await outliveLease(email)
     const genB = await reserve(email)
     const b = await issueLink(email) // staff invite B, completes
     expect(await saveRole(b.userId, false, genB)).toBe('cleared')
@@ -68,6 +75,7 @@ describe('[R4-01] a stale invite request cannot override a newer role or a demot
     const email = `r4-b-${uid()}@passsystem.test`
     const genA = await reserve(email)
     const a = await issueLink(email) // paused
+    await outliveLease(email)
     const genB = await reserve(email)
     const b = await issueLink(email)
     expect(await saveRole(b.userId, true, genB)).toBe('queued')
@@ -131,7 +139,8 @@ describe('[R4-01] a stale invite request cannot override a newer role or a demot
       await holder.query(`select pg_advisory_xact_lock(hashtextextended('passsystem:admins', 0))`)
       const pending = invite(true)
       await waitingOn('%set_pending_admin%')
-      await reserve(email) // a newer invite for the same address is created meanwhile
+      // Rights change meanwhile (as a demotion does): the generation advances.
+      await db(`update private.invite_generations set generation = generation + 1 where email = $1`, [email])
       await holder.query('commit')
       first = await pending
     } finally {

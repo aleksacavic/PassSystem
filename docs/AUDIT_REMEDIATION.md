@@ -110,14 +110,16 @@ Results after this remediation: unit 72 / 72, integration 116 / 116, E2E 9 / 9.
 
 Findings from `docs/CODEX_REVIEW_4.md`. Database fixes are in `supabase/migrations/20261029000009_review4_remediation.sql`; tests are in
 `tests/integration/review4-regressions.test.ts`, `src/scanner/useCameraScanner.test.ts`, `src/lib/i18n.test.ts`,
-`src/pages/public/RegisterPage.test.tsx`, `src/lib/calendar.test.ts` and `src/lib/securityHeaders.test.ts`. Each test was run against the
-previous code (or that code's behaviour restored in the local database) and failed there.
+`src/pages/public/RegisterPage.test.tsx`, `src/lib/calendar.test.ts` and `src/lib/securityHeaders.test.ts`. The tests that reproduce a
+finding were run against the previous code (or that code's behaviour restored in the local database) and failed there. Two are invariant
+guards that passed before the fix as well: unmounting mid-start (R4-02) and "the creator cannot be changed" (R4-03). The R4-07 tests target
+the historical `9918dc4` generator, not a change made in 009.
 
 | ID | Severity | Fix |
 | --- | --- | --- |
-| R4-01 | Medium | Every invite reserves a generation for its email address (`begin_invite`) **before** Supabase Auth issues the link. `set_pending_admin(user, admin, generation, invited_by)` applies the role only while that generation is current; otherwise it returns `stale` and changes nothing, and `invite-staff` answers `409 invite_superseded` without a link. A queued promotion records its generation, and the acceptance trigger honours it only if it is still current. Demotion (`set_user_admin`) advances the generation, which voids every invite request still in flight. One lock order everywhere: admin lock → Auth user row → generation row → profile. Tests: both of Codex's interleavings, an invite's own late save after acceptance and demotion, a queued promotion overtaken by a newer accepted invite, and the real Edge Function held at the role step while a newer invite is reserved. |
+| R4-01 | Medium | Every invite reserves a generation for its email address (`begin_invite`) **before** Supabase Auth issues the link. `set_pending_admin(user, admin, generation, invited_by)` applies the role only while that generation is current; otherwise it returns `stale` and changes nothing, and `invite-staff` answers `409 invite_superseded` without a link. A queued promotion records its generation, and the acceptance trigger honours it only if it is still current. Demotion (`set_user_admin`) advances the generation, which voids every invite request still in flight. Locks per path (corrected in review 5): see the R5-01 entry below. Tests: both of Codex's interleavings, an invite's own late save after acceptance and demotion, a queued promotion overtaken by a newer accepted invite, and the real Edge Function held at the role step while a newer invite is reserved. |
 | R4-02 | Medium | The camera request is kept on its own. Whatever happens to a start (detector failure before or after the camera answers, a newer start, a stop), a stream it obtains is stopped unless it became the active one. Unmounting also advances the start generation. Tests cover both failure orders and unmounting mid-start. |
-| R4-03 | Medium | `validate_event` still refuses to change an event's creator, but now allows clearing it, so `ON DELETE SET NULL` works when the creator's account is deleted. The test deletes a demoted creator who also assigned staff and scanned a guest, and checks every column that references Auth users. |
+| R4-03 | Medium | `validate_event` still refuses to change an event's creator to another account, but now allows clearing it, so `ON DELETE SET NULL` works when the creator's account is deleted. The trigger cannot tell that foreign-key action from a privileged `SET created_by = NULL`; ordinary users cannot write the column and no function writes it, so a future privileged function that does would need its own check. The test deletes a demoted creator who also assigned staff and scanned a guest, and checks every column that references Auth users. |
 | R4-04 | Low | Unknown API error codes show an approved, translated generic message (`error.generic`); server text is never rendered on guest pages. The registration and pass pages store the error code and translate it when shown, so switching language updates it. |
 | R4-05 | Low | Calendar text turns CRLF, lone CR and LF into an escaped newline and drops the other control characters that iCalendar TEXT values cannot contain. |
 | R4-06 | Low | 003-era retries compare the stored names after NFC normalization, so a name stored with a decomposed accent replays its existing registration. |
@@ -133,3 +135,32 @@ itself stays valid. Deleting a staff account removes their access (RLS and Auth)
 non-destructive disable, which F-16 would add. Hosted `cf-connecting-ip` trust still needs to be confirmed with a non-browser request.
 
 Results after this remediation: unit 86 / 86, integration 124 / 124, E2E 9 / 9.
+
+## Codex review 5 remediation (migration 010)
+
+Findings from `docs/CODEX_REVIEW_5.md`. The database change is `supabase/migrations/20261029000010_review5_remediation.sql`; tests are in
+`tests/integration/review5-regressions.test.ts`, `src/scanner/useCameraScanner.test.ts`, `src/pages/public/RegisterPage.test.tsx` and
+`src/lib/securityHeaders.test.ts`.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R5-01 | Medium | One invite at a time per address. `begin_invite` now also takes a 10-minute lease on the address (longer than an Edge Function request may run) and returns null while another invite holds it; `invite-staff` then answers `409 invite_in_progress` ("being sent right now, try again in a minute"). `set_pending_admin` releases the lease in the same transaction that saves the role, and `invite-staff` calls `end_invite` in a `finally` for every other way a request ends. An older request can therefore no longer reach Auth after a newer one and replace the token of a link already handed out. The 009 generation fence stays as a second line of defence (a request that outlives its lease, or a demotion during an invite, still ends as `stale`). Test: the real Edge Function is held **before** Auth issues its token (the account row is locked); a second invite is refused within 5 seconds, and the first link is then accepted with the first invite's role. |
+| R5-02 | Medium | The scanner tracks a camera stream the moment the camera answers, before the detector is ready, and stops it on any cancellation. Hiding the page cancels a start in progress, not only a running scanner. After every wait (detector and camera, video playback, camera list) a start checks that it is still current before changing anything. A failed start advances the generation, so a camera that answers afterwards is stopped at once. Tests: Stop while the detector loads (stopped without waiting for it), hide during startup, Stop while the camera list loads, unmount before the camera answers; plus guards for overlapping starts and unmounting while the camera list loads. |
+| R5-03 | Low | Field and terms errors on the registration page are stored as message keys and translated when shown, like the other errors, so switching language updates them. Test: a validation error and a server `terms_changed`, each followed by a language switch. |
+| R5-04 | Low | `src/lib/securityHeaders.test.ts` parses the Vercel and Netlify rules with their paths and checks the headers each route actually receives (guest, staff, scanner, `index.html`, assets). A narrowed rule or a later rule that loosens one route now fails; the test checks that it notices both. Codex's two path mutations fail it. |
+
+Corrections to the review 4 notes, from the same review: the lock order is per path, not one order for every path (it is spelled out in
+010's header). No pair of locks is taken in opposite orders: `set_pending_admin` takes admin lock → Auth row → generation → profile;
+`set_user_admin` admin lock → profile → generation; acceptance Auth row → profile → generation (share); `begin_invite` and `end_invite`
+only the generation row.
+
+Rollout: apply 010, then deploy `invite-staff` right away (it calls `end_invite`, added by 010). 010 keeps every signature that
+`invite-staff` v8 uses, so invites keep working in between; but v8 never releases a lease when Auth refuses an invite, so in that gap such
+an address would stay reserved for 10 minutes. Then deploy the frontend.
+
+Which new tests reproduce a finding and failed on the previous code: both behavioural R5-01 tests (with the lease removed from
+`begin_invite`), four of the R5-02 scanner tests (against the R4 hook), the R5-03 language-switch test, and the R5-04 route tests (with
+Codex's path mutations). Guards that already passed before: the R5-01 privilege test, and the overlapping-start and
+unmount-during-camera-list scanner tests.
+
+Results after this remediation: unit 94 / 94, integration 127 / 127, E2E 9 / 9.

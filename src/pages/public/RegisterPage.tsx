@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { getPublicEvent, registerForEvent } from '../../lib/api'
 import { ApiError } from '../../lib/errors'
 import { formatDateTime, formatEventDate, zoneLabel } from '../../lib/datetime'
-import { errorMessage, useT, type MessageKey } from '../../lib/i18n'
+import { errorKey, errorMessage, useT, type MessageKey } from '../../lib/i18n'
 import { passesForEvent, savePass, type StoredPass } from '../../lib/passStorage'
 import { randomUuid } from '../../lib/random'
 import type { PublicEvent, RegistrationState } from '../../lib/types'
@@ -17,7 +17,6 @@ import {
   normalizeEmail,
   phoneInvalid,
   type NameProblem,
-  type RegistrationErrors,
 } from '../../lib/validation'
 import { DateTile } from '../../components/DateTile'
 import { PublicLayout } from '../../components/PublicLayout'
@@ -27,6 +26,14 @@ type LoadState =
   | { kind: 'loading' }
   | { kind: 'error'; code: string | null; notFound: boolean }
   | { kind: 'ready'; event: PublicEvent; state: RegistrationState }
+
+type ErrorField = 'firstName' | 'lastName' | 'email' | 'phone' | 'terms'
+/** A field error, kept as a message key and translated when shown, so a language switch updates it. */
+interface FieldError {
+  key: MessageKey
+  label?: MessageKey
+}
+type FieldErrors = Partial<Record<ErrorField, FieldError>>
 
 const NAME_MESSAGES: Record<NameProblem, MessageKey> = {
   required: 'error.nameRequired',
@@ -39,11 +46,12 @@ export default function RegisterPage() {
   const { slug = '' } = useParams()
   const navigate = useNavigate()
   const { t, locale } = useT()
+  const shown = (e?: FieldError) => e && t(e.key, { label: e.label ? t(e.label) : '', max: NAME_MAX })
   const [load, setLoad] = useState<LoadState>({ kind: 'loading' })
   const [reloadKey, setReloadKey] = useState(0)
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', website: '' })
   const [acceptTerms, setAcceptTerms] = useState(false)
-  const [errors, setErrors] = useState<RegistrationErrors & { terms?: string }>({})
+  const [errors, setErrors] = useState<FieldErrors>({})
   // An error code, translated when shown, so switching language updates it.
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -80,14 +88,14 @@ export default function RegisterPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (inFlight.current || load.kind !== 'ready') return
-    const v: RegistrationErrors & { terms?: string } = {}
+    const v: FieldErrors = {}
     const first = nameProblem(form.firstName)
     const last = nameProblem(form.lastName)
-    if (first) v.firstName = t(NAME_MESSAGES[first], { label: t('form.firstName'), max: NAME_MAX })
-    if (last) v.lastName = t(NAME_MESSAGES[last], { label: t('form.lastName'), max: NAME_MAX })
-    if (emailInvalid(form.email)) v.email = t('error.email')
-    if (phoneInvalid(form.phone)) v.phone = t('error.phone')
-    if (load.event.terms_required && !acceptTerms) v.terms = t('error.terms_not_accepted')
+    if (first) v.firstName = { key: NAME_MESSAGES[first], label: 'form.firstName' }
+    if (last) v.lastName = { key: NAME_MESSAGES[last], label: 'form.lastName' }
+    if (emailInvalid(form.email)) v.email = { key: 'error.email' }
+    if (phoneInvalid(form.phone)) v.phone = { key: 'error.phone' }
+    if (load.event.terms_required && !acceptTerms) v.terms = { key: 'error.terms_not_accepted' }
     setErrors(v)
     setSubmitError(null)
     if (Object.keys(v).length > 0) return
@@ -122,16 +130,16 @@ export default function RegisterPage() {
         // The organizer may have just switched terms on or edited them: show the
         // current text and ask for a fresh acceptance.
         setAcceptTerms(false)
-        setErrors({ terms: errorMessage(t, apiErr.code) })
+        setErrors({ terms: { key: errorKey(apiErr.code) } })
         setReloadKey((k) => k + 1)
       } else if (apiErr?.code === 'invalid_input' && apiErr.field && apiErr.field !== 'form') {
-        const fields: Record<string, keyof RegistrationErrors> = {
+        const fields: Record<string, ErrorField> = {
           first_name: 'firstName',
           last_name: 'lastName',
           email: 'email',
           phone: 'phone',
         }
-        setErrors({ [fields[apiErr.field] ?? 'firstName']: t('error.field') })
+        setErrors({ [fields[apiErr.field] ?? 'firstName']: { key: 'error.field' } })
       } else {
         setSubmitError(apiErr ? (apiErr.code ?? 'generic') : 'network')
       }
@@ -241,7 +249,7 @@ export default function RegisterPage() {
         {open && (
           <form className="space-y-4" onSubmit={onSubmit} noValidate>
             <div className="grid grid-cols-2 gap-3">
-              <Field label={t('form.firstName')} error={errors.firstName}>
+              <Field label={t('form.firstName')} error={shown(errors.firstName)}>
                 {(p) => (
                   <Input
                     {...p}
@@ -256,7 +264,7 @@ export default function RegisterPage() {
                   />
                 )}
               </Field>
-              <Field label={t('form.lastName')} error={errors.lastName}>
+              <Field label={t('form.lastName')} error={shown(errors.lastName)}>
                 {(p) => (
                   <Input
                     {...p}
@@ -275,7 +283,7 @@ export default function RegisterPage() {
             <Field
               label={t('form.email')}
               optional={t('optional')}
-              error={errors.email}
+              error={shown(errors.email)}
               hint={t('form.emailHint')}
             >
               {(p) => (
@@ -297,7 +305,7 @@ export default function RegisterPage() {
             <Field
               label={t('form.phone')}
               optional={t('optional')}
-              error={errors.phone}
+              error={shown(errors.phone)}
               hint={t('form.phoneHint')}
             >
               {(p) => (
@@ -353,7 +361,7 @@ export default function RegisterPage() {
                 </div>
                 {errors.terms && (
                   <p id="accept-terms-error" className="text-sm font-medium text-danger-fg" role="alert">
-                    {errors.terms}
+                    {shown(errors.terms)}
                   </p>
                 )}
               </div>

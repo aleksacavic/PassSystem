@@ -84,113 +84,130 @@ Deno.serve(async (req) => {
   const byLink = body.delivery === 'link'
   if (byLink && !redirectTo) return fail(400, 'invalid_input', 'Missing site address for the invite link.')
 
-  // Reserve this invite's generation before Auth issues its link. The role is
-  // saved against it below and only takes effect while it is the latest invite
-  // for the address (no newer invite, no demotion in between).
+  // Reserve the address for this invite before Auth issues its link: one invite
+  // at a time per address (an older request reaching Auth later would replace
+  // the token of the link a newer one already returned). The role is saved
+  // against this generation, which a demotion meanwhile makes stale.
   const genRes = await fetch(`${url}/rest/v1/rpc/begin_invite`, {
     method: 'POST',
     headers: serviceHeaders(supa),
     body: JSON.stringify({ p_email: email }),
   })
-  const generation = genRes.ok ? ((await genRes.json().catch(() => null)) as unknown) : null
+  const generation = genRes.ok ? ((await genRes.json().catch(() => undefined)) as unknown) : undefined
+  if (generation === null) {
+    return fail(
+      409,
+      'invite_in_progress',
+      'An invite for this person is being sent right now. Try again in a minute.',
+    )
+  }
   if (typeof generation !== 'number') {
     console.error('reserving the invite failed', genRes.status)
     return fail(502, 'invite_failed', 'The invite could not be created. Try again later.')
   }
 
-  let inviteRes: Response
-  if (byLink) {
-    inviteRes = await fetch(`${url}/auth/v1/admin/generate_link`, {
+  try {
+    let inviteRes: Response
+    if (byLink) {
+      inviteRes = await fetch(`${url}/auth/v1/admin/generate_link`, {
+        method: 'POST',
+        headers: serviceHeaders(supa),
+        body: JSON.stringify({
+          type: 'invite',
+          email,
+          data: { invited_by: caller.id },
+          redirect_to: redirectTo,
+        }),
+      })
+    } else {
+      const inviteUrl = new URL(`${url}/auth/v1/invite`)
+      if (redirectTo) inviteUrl.searchParams.set('redirect_to', redirectTo)
+      inviteRes = await fetch(inviteUrl, {
+        method: 'POST',
+        headers: serviceHeaders(supa),
+        body: JSON.stringify({ email, data: { invited_by: caller.id } }),
+      })
+    }
+    const raw = (await inviteRes.json().catch(() => ({}))) as {
+      id?: string
+      user?: { id?: string }
+      hashed_token?: string
+      properties?: { hashed_token?: string }
+      code?: number
+      error_code?: string
+      msg?: string
+      message?: string
+    }
+    const invited = { ...raw, id: raw.id ?? raw.user?.id }
+    const hashedToken = raw.hashed_token ?? raw.properties?.hashed_token
+    if (!inviteRes.ok || !invited.id || (byLink && !hashedToken)) {
+      const msg = `${invited.error_code ?? ''} ${invited.msg ?? invited.message ?? ''}`
+      if (
+        inviteRes.status === 422 &&
+        /email_exists|already been registered|already registered|exists/i.test(msg)
+      ) {
+        return fail(
+          409,
+          'user_exists',
+          'This person already has an account. They can use "Forgot password" to sign in.',
+        )
+      }
+      if (inviteRes.status === 429 || /rate limit/i.test(msg)) {
+        return fail(429, 'email_rate_limited', 'Too many invite emails were sent recently. Try again later.')
+      }
+      console.error('invite failed', inviteRes.status, msg)
+      return fail(502, 'invite_failed', 'The invite email could not be sent. Try again later.')
+    }
+    const invitedId = invited.id
+    const link = byLink
+      ? `${new URL(redirectTo!).origin}/invite#token=${encodeURIComponent(hashedToken!)}`
+      : undefined
+
+    // The latest invite decides the role of a pending account. Administrator
+    // rights are granted once, by a database trigger, when the invite is accepted
+    // (email confirmed), so a mistyped address never becomes an administrator.
+    const roleRes = await fetch(`${url}/rest/v1/rpc/set_pending_admin`, {
       method: 'POST',
       headers: serviceHeaders(supa),
       body: JSON.stringify({
-        type: 'invite',
-        email,
-        data: { invited_by: caller.id },
-        redirect_to: redirectTo,
+        p_user_id: invitedId,
+        p_admin: makeAdmin,
+        p_generation: generation,
+        p_invited_by: caller.id,
       }),
     })
-  } else {
-    const inviteUrl = new URL(`${url}/auth/v1/invite`)
-    if (redirectTo) inviteUrl.searchParams.set('redirect_to', redirectTo)
-    inviteRes = await fetch(inviteUrl, {
-      method: 'POST',
-      headers: serviceHeaders(supa),
-      body: JSON.stringify({ email, data: { invited_by: caller.id } }),
-    })
-  }
-  const raw = (await inviteRes.json().catch(() => ({}))) as {
-    id?: string
-    user?: { id?: string }
-    hashed_token?: string
-    properties?: { hashed_token?: string }
-    code?: number
-    error_code?: string
-    msg?: string
-    message?: string
-  }
-  const invited = { ...raw, id: raw.id ?? raw.user?.id }
-  const hashedToken = raw.hashed_token ?? raw.properties?.hashed_token
-  if (!inviteRes.ok || !invited.id || (byLink && !hashedToken)) {
-    const msg = `${invited.error_code ?? ''} ${invited.msg ?? invited.message ?? ''}`
-    if (
-      inviteRes.status === 422 &&
-      /email_exists|already been registered|already registered|exists/i.test(msg)
-    ) {
+    const outcome = roleRes.ok ? ((await roleRes.json().catch(() => null)) as string | null) : null
+    if (outcome === 'stale') {
+      // This person's rights changed while the invite was being sent (or this
+      // request outlived its reservation). Its link is not handed out.
       return fail(
         409,
-        'user_exists',
-        'This person already has an account. They can use "Forgot password" to sign in.',
+        'invite_superseded',
+        "This person's rights changed while the invite was being sent. Check the staff list before inviting again.",
       )
     }
-    if (inviteRes.status === 429 || /rate limit/i.test(msg)) {
-      return fail(429, 'email_rate_limited', 'Too many invite emails were sent recently. Try again later.')
+    if (!outcome || outcome === 'not_found') {
+      console.error('setting the invite role failed', roleRes.status, outcome)
+      return reply(200, {
+        ok: true,
+        user_id: invitedId,
+        email,
+        admin: false,
+        link,
+        warning: makeAdmin
+          ? 'Invite created, but administrator rights could not be prepared. Use "Make admin" after they accept.'
+          : 'Invite created, but its role could not be saved. Check the staff list before they accept.',
+      })
     }
-    console.error('invite failed', inviteRes.status, msg)
-    return fail(502, 'invite_failed', 'The invite email could not be sent. Try again later.')
+    // What the account will actually be once the invite is accepted.
+    const admin = outcome === 'queued' || outcome === 'granted'
+    return reply(200, { ok: true, user_id: invitedId, email, admin, link })
+  } finally {
+    // Normally already released by set_pending_admin; this covers the failures.
+    await fetch(`${url}/rest/v1/rpc/end_invite`, {
+      method: 'POST',
+      headers: serviceHeaders(supa),
+      body: JSON.stringify({ p_email: email, p_generation: generation }),
+    }).catch(() => undefined)
   }
-  const invitedId = invited.id
-  const link = byLink
-    ? `${new URL(redirectTo!).origin}/invite#token=${encodeURIComponent(hashedToken!)}`
-    : undefined
-
-  // The latest invite decides the role of a pending account. Administrator
-  // rights are granted once, by a database trigger, when the invite is accepted
-  // (email confirmed), so a mistyped address never becomes an administrator.
-  const roleRes = await fetch(`${url}/rest/v1/rpc/set_pending_admin`, {
-    method: 'POST',
-    headers: serviceHeaders(supa),
-    body: JSON.stringify({
-      p_user_id: invitedId,
-      p_admin: makeAdmin,
-      p_generation: generation,
-      p_invited_by: caller.id,
-    }),
-  })
-  const outcome = roleRes.ok ? ((await roleRes.json().catch(() => null)) as string | null) : null
-  if (outcome === 'stale') {
-    // A newer invite (or a change of rights) for this person won; its role
-    // applies. This request's link is not handed out.
-    return fail(
-      409,
-      'invite_superseded',
-      'Another invite for this person was sent at the same time. Check the staff list before inviting again.',
-    )
-  }
-  if (!outcome || outcome === 'not_found') {
-    console.error('setting the invite role failed', roleRes.status, outcome)
-    return reply(200, {
-      ok: true,
-      user_id: invitedId,
-      email,
-      admin: false,
-      link,
-      warning: makeAdmin
-        ? 'Invite created, but administrator rights could not be prepared. Use "Make admin" after they accept.'
-        : 'Invite created, but its role could not be saved. Check the staff list before they accept.',
-    })
-  }
-  // What the account will actually be once the invite is accepted.
-  const admin = outcome === 'queued' || outcome === 'granted'
-  return reply(200, { ok: true, user_id: invitedId, email, admin, link })
 })

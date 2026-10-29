@@ -238,7 +238,14 @@ export function errorMessage(
   code: string | null | undefined,
   fallback: MessageKey = 'error.generic',
 ): string {
+  return t(errorKey(code, fallback))
+}
+
+/** The message key for an API error code (for errors stored and translated later). */
+export function errorKey(
+  code: string | null | undefined,
+  fallback: MessageKey = 'error.generic',
+): MessageKey {
   const key = `error.${code ?? ''}` as MessageKey
-  if (code && key in en) return t(key)
-  return t(fallback)
+  return code && key in en ? key : fallback
 }

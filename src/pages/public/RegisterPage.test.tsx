@@ -5,6 +5,7 @@ import RegisterPage from './RegisterPage'
 import { LangProvider } from '../../components/LangProvider'
 import * as api from '../../lib/api'
 import { ApiError } from '../../lib/errors'
+import { translate } from '../../lib/i18n'
 
 vi.mock('../../lib/api', () => ({
   getPublicEvent: vi.fn(),
@@ -236,6 +237,39 @@ describe('RegisterPage', () => {
 
     fireEvent.click(screen.getByTestId('lang-switch'))
     expect(await screen.findByText('Something went wrong. Please try again in a moment.')).toBeInTheDocument()
+    view.unmount()
+    localStorage.removeItem('passsystem.lang')
+  })
+
+  it('translates field and terms errors again after a language switch (R5-03)', async () => {
+    vi.mocked(api.getPublicEvent).mockResolvedValue({ event: withTerms, registrationState: 'open' })
+    vi.mocked(api.registerForEvent).mockRejectedValue(new ApiError('PRIVATE_DIAGNOSTIC', 'terms_changed'))
+    const view = render(
+      <MemoryRouter initialEntries={['/e/gala']}>
+        <LangProvider>
+          <Routes>
+            <Route path="/e/:slug" element={<RegisterPage />} />
+          </Routes>
+        </LangProvider>
+      </MemoryRouter>,
+    )
+    // A validation error, then a language switch.
+    fireEvent.click(await screen.findByRole('button', { name: 'Get my pass' }))
+    expect(await screen.findByText('First name is required.')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('lang-switch'))
+    expect(await screen.findByText('الاسم الأول مطلوب.')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('lang-switch'))
+
+    // A terms error from the server, then a language switch.
+    fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Test' } })
+    fireEvent.click(screen.getByLabelText('I have read and accept the attendance terms.'))
+    fireEvent.click(screen.getByRole('button', { name: 'Get my pass' }))
+    expect(await screen.findByText(translate('en', 'error.terms_changed'))).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('lang-switch'))
+    expect(await screen.findByText(translate('ar', 'error.terms_changed'))).toBeInTheDocument()
+    expect(screen.queryByText(translate('en', 'error.terms_changed'))).toBeNull()
+    expect(screen.queryByText(/PRIVATE_DIAGNOSTIC/)).toBeNull()
     view.unmount()
     localStorage.removeItem('passsystem.lang')
   })
