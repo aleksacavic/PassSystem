@@ -409,3 +409,14 @@ Results: unit 167 / 167, integration 138 / 138, E2E 10 / 10.
   with little side padding, so the text stays inside each button. E2E at phone width checks no label overflows.
 
 Results: unit 170 / 170, integration 142 / 142, E2E 11 / 11.
+
+## Codex review 18 remediation (no migration)
+
+Findings from `docs/CODEX_REVIEW_18.md`. Frontend only.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R18-01 | Low | After the hour-by-hour walk, every counted period the walk missed is added and the buckets are sorted by key, so a local period shorter than an hour (Lord Howe's half-hour daylight-saving jump) keeps its bar and the bars always add up to the total. The chart's highest-bar search is a loop instead of `Math.max(...)`. Tests: Codex's Lord Howe schedule (01:00, 02:00, 03:00 each 1; fails on 17e5db6), and an invariant over six zones and four spans that counts add up, keys are sorted and unique. |
+| R18-02 | Low | The Registrations and Scan activity lists now share `usePagedList` (`src/lib/usePagedList.ts`): a response is applied when it is for the filters shown **and newer than the last response applied** (not "the latest request started"), so a slow response is used even if a poll started meanwhile, while an older one arriving after a newer one is still ignored. Polls are skipped while a request for the filters shown is still on its way. `reload()` for late dialog callbacks keeps R17-01's current-filter behaviour. Tests (`src/lib/usePagedList.test.ts`, real polling with fake timers): every response takes 16 s with 15 s polling → the list shows after 16 s and at most 5 requests run in 76 s (never shows with the old rule); page 1 → 2 → 1 with the first request finishing last → the fresh page 1 stays; an old `reload` loads the query shown now. |
+
+Results: unit 175 / 175, integration 142 / 142, E2E 11 / 11.

@@ -1,5 +1,5 @@
 import { Ban, Download, RefreshCw, RotateCcw, Search, X } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   listAllRegistrations,
   listRegistrations,
@@ -12,7 +12,7 @@ import { formatDateTime } from '../../../lib/datetime'
 import { formatPassToken, passUrl } from '../../../lib/passToken'
 import { safeFilename } from '../../../lib/qr'
 import { useIsCurrent } from '../../../lib/useIsCurrent'
-import { usePolling } from '../../../lib/usePolling'
+import { usePagedList } from '../../../lib/usePagedList'
 import type { EventRow, Registration, RegistrationStatus } from '../../../lib/types'
 import { CopyButton } from '../../../components/CopyButton'
 import { Modal } from '../../../components/Modal'
@@ -29,8 +29,6 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
   const [debounced, setDebounced] = useState('')
   const [status, setStatus] = useState<RegistrationStatus | 'all'>('all')
   const [page, setPage] = useState(0)
-  const [data, setData] = useState<{ rows: Registration[]; total: number } | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [action, setAction] = useState<{ reg: Registration; kind: 'revoke' | 'restore' | 'reissue' } | null>(
     null,
@@ -41,39 +39,16 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
     return () => clearTimeout(t)
   }, [search])
 
-  // Only the latest request for the filters now shown may update the list: a
-  // slower, older one (a search since cleared, a previous page, an earlier poll)
-  // is ignored when it arrives (R16-02, R17-01).
-  const latest = useRef(0)
-  const shownQuery = useRef('')
   const searchInput = useRef<HTMLInputElement>(null)
-  const query = JSON.stringify([debounced, status, page])
-  useLayoutEffect(() => {
-    shownQuery.current = query
-  }, [query])
-
-  const load = useCallback(() => {
-    const request = ++latest.current
-    const forQuery = JSON.stringify([debounced, status, page])
-    const current = () => request === latest.current && forQuery === shownQuery.current
-    listRegistrations({ eventId: event.id, search: debounced, status, page, pageSize: PAGE_SIZE })
-      .then((d) => {
-        if (!current()) return
-        setData(d)
-        setError(null)
-      })
-      .catch((e: Error) => current() && setError(e.message))
-  }, [event.id, debounced, status, page])
-
-  // Callbacks that outlive a render (a dialog finishing late) reload with the filters
-  // shown now, not the ones they were created with (R17-01).
-  const loadLatest = useRef(load)
-  useEffect(() => {
-    loadLatest.current = load
-  }, [load])
-
-  useEffect(load, [load])
-  usePolling(load, 15_000)
+  const fetchPage = useCallback(
+    () => listRegistrations({ eventId: event.id, search: debounced, status, page, pageSize: PAGE_SIZE }),
+    [event.id, debounced, status, page],
+  )
+  const { data, error, setError, reload } = usePagedList(
+    JSON.stringify([debounced, status, page]),
+    fetchPage,
+    15_000,
+  )
 
   async function exportCsv() {
     setExporting(true)
@@ -310,7 +285,7 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
           kind={action.kind}
           onClose={() => setAction(null)}
           onDone={() => {
-            loadLatest.current()
+            reload()
             onChanged()
           }}
         />

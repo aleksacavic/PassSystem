@@ -173,7 +173,9 @@ const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 function HistoryChart({ buckets, unit, noun }: ViewProps) {
   const [hover, setHover] = useState<number | null>(null)
-  const max = niceMax(Math.max(...buckets.map((b) => b.count)))
+  let highest = 0
+  for (const b of buckets) if (b.count > highest) highest = b.count // a loop: no argument-count limit
+  const max = niceMax(highest)
   // About six axis labels, whatever the number of bars.
   const every = Math.max(1, Math.ceil(buckets.length / 6))
   const shown = hover !== null ? buckets[hover] : null

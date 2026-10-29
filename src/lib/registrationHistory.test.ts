@@ -82,3 +82,49 @@ describe('registrationHistory edges (R17-03, R17-04)', () => {
     expect(h.buckets.at(-1)!.title).toBe('2 Jan 2027')
   })
 })
+
+describe('registrationHistory half-hour daylight-saving jump (R18-01)', () => {
+  it('keeps a period shorter than an hour, so the bars add up to the total', () => {
+    const h = registrationHistory(
+      [
+        '2026-10-03T14:45:00Z', // Lord Howe: 4 Oct 01:15
+        '2026-10-03T15:45:00Z', // Lord Howe: 4 Oct 02:45 (02:00–02:30 is skipped that night)
+        '2026-10-03T16:15:00Z', // Lord Howe: 4 Oct 03:15
+      ],
+      'Australia/Lord_Howe',
+    )
+    expect(h.total).toBe(3)
+    expect(h.buckets.map((b) => [b.label, b.count])).toEqual([
+      ['01:00', 1],
+      ['02:00', 1],
+      ['03:00', 1],
+    ])
+    expect(h.buckets.reduce((n, b) => n + b.count, 0)).toBe(h.total)
+  })
+
+  it('bars always add up to the total across many zones and spans', () => {
+    const zones = [
+      'UTC',
+      'Asia/Dubai',
+      'Asia/Kolkata',
+      'Asia/Kathmandu',
+      'Australia/Lord_Howe',
+      'Europe/Belgrade',
+    ]
+    const start = Date.parse('2026-03-27T00:00:00Z')
+    for (const zone of zones)
+      for (const span of [3, 30, 80, 24 * 9]) {
+        const ts = Array.from({ length: 40 }, (_, i) =>
+          new Date(start + ((i * 7919) % (span * 60)) * 60_000).toISOString(),
+        )
+        const h = registrationHistory(ts, zone)
+        expect(
+          h.buckets.reduce((n, b) => n + b.count, 0),
+          `${zone} ${span}h`,
+        ).toBe(40)
+        const keys = h.buckets.map((b) => b.key)
+        expect([...keys].sort(), `${zone} ${span}h sorted`).toEqual(keys)
+        expect(new Set(keys).size, `${zone} ${span}h unique`).toBe(keys.length)
+      }
+  })
+})

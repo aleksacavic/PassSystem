@@ -1,8 +1,8 @@
 import { Search, X } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { listScanActivity, type ScanActivityRow } from '../../../lib/api'
 import { formatDateTime } from '../../../lib/datetime'
-import { usePolling } from '../../../lib/usePolling'
+import { usePagedList } from '../../../lib/usePagedList'
 import type { AdmissionResult, EventRow } from '../../../lib/types'
 import { Alert, Badge, Button, Card, CardHeader, Input, Select, Spinner } from '../../../components/ui'
 import { ScanHistory } from './ScanHistory'
@@ -23,8 +23,6 @@ export function ActivityTab({ event }: { event: EventRow }) {
   const [debounced, setDebounced] = useState('')
   const [result, setResult] = useState<AdmissionResult | 'all'>('all')
   const [page, setPage] = useState(0)
-  const [data, setData] = useState<{ rows: ScanActivityRow[]; total: number } | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const searchInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -32,29 +30,16 @@ export function ActivityTab({ event }: { event: EventRow }) {
     return () => clearTimeout(t)
   }, [search])
 
-  // As on the Registrations tab: only the latest request for the filters shown may update the list.
-  const latest = useRef(0)
-  const shownQuery = useRef('')
-  const query = JSON.stringify([debounced, result, page])
-  useLayoutEffect(() => {
-    shownQuery.current = query
-  }, [query])
-
-  const load = useCallback(() => {
-    const request = ++latest.current
-    const forQuery = JSON.stringify([debounced, result, page])
-    const current = () => request === latest.current && forQuery === shownQuery.current
-    listScanActivity({ eventId: event.id, search: debounced, result, page, pageSize: PAGE_SIZE })
-      .then((d) => {
-        if (!current()) return
-        setData(d)
-        setError(null)
-      })
-      .catch((e: Error) => current() && setError(e.message))
-  }, [event.id, debounced, result, page])
-
-  useEffect(load, [load])
-  usePolling(load, 10_000)
+  // Same list behaviour as the Registrations tab (see usePagedList).
+  const fetchPage = useCallback(
+    () => listScanActivity({ eventId: event.id, search: debounced, result, page, pageSize: PAGE_SIZE }),
+    [event.id, debounced, result, page],
+  )
+  const { data, error } = usePagedList<{ rows: ScanActivityRow[]; total: number }>(
+    JSON.stringify([debounced, result, page]),
+    fetchPage,
+    10_000,
+  )
 
   const filtered = search.trim() !== '' || result !== 'all'
   const pages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1

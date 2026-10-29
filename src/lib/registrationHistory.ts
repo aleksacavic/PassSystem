@@ -89,9 +89,12 @@ export function registrationHistory(
   const withYear = parts(first, timeZone).day.slice(0, 4) !== parts(last, timeZone).day.slice(0, 4)
 
   const counts = new Map<string, number>()
+  /** One moment inside each counted period, to label it if the walk below misses it. */
+  const sample = new Map<string, number>()
   for (const t of times) {
     const k = keyFor(t, unit, timeZone)
     counts.set(k, (counts.get(k) ?? 0) + 1)
+    if (!sample.has(k)) sample.set(k, t)
   }
 
   // Walk the span hour by hour (in UTC) and collect each local period once, so
@@ -107,13 +110,15 @@ export function registrationHistory(
     seen.add(k)
     buckets.push({ key: k, ...labels(t, unit, timeZone, locale, withYear), count: counts.get(k) ?? 0 })
   }
-  // The first period is always reached by the walk; kept as a guard so no counted period is ever lost.
-  if (!seen.has(firstKey))
-    buckets.unshift({
-      key: firstKey,
-      ...labels(first, unit, timeZone, locale, withYear),
-      count: counts.get(firstKey) ?? 0,
-    })
+  // A local period shorter than an hour (a half-hour daylight-saving jump, as on Lord
+  // Howe Island) can fall between two whole-hour steps: add every counted period the walk
+  // missed, so the bars always add up to the total (R18-01).
+  for (const [k, count] of counts)
+    if (!seen.has(k)) {
+      seen.add(k)
+      buckets.push({ key: k, ...labels(sample.get(k)!, unit, timeZone, locale, withYear), count })
+    }
+  buckets.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
 
   let peak: HistoryBucket | null = null
   for (const b of buckets) if (!peak || b.count > peak.count) peak = b
