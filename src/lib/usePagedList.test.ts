@@ -58,4 +58,16 @@ describe('usePagedList', () => {
     expect(first).toHaveBeenCalledTimes(1)
     expect(result.current.data).toBe('everyone')
   })
+
+  it('a newer error is not replaced by an older response that settles later (R19-01)', async () => {
+    const pending: { resolve: (v: string) => void; reject: (e: Error) => void }[] = []
+    const fetch = vi.fn(() => new Promise<string>((resolve, reject) => pending.push({ resolve, reject })))
+    const { result } = renderHook(() => usePagedList('q', fetch, 15_000))
+    act(() => result.current.reload()) // a second request for the same list
+    await act(async () => pending[1]!.reject(new Error('new failure')))
+    expect(result.current.error).toBe('new failure')
+    await act(async () => pending[0]!.resolve('old rows'))
+    expect(result.current.data).toBeNull()
+    expect(result.current.error).toBe('new failure')
+  })
 })

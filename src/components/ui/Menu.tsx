@@ -23,6 +23,7 @@ export function Menu({
   const [open, setOpen] = useState(false)
   const [side, setSide] = useState<'start' | 'end'>(align === 'start' ? 'start' : 'end')
   const root = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
   const id = useId()
 
   // Pick the side before the list is painted: open toward the screen's centre.
@@ -41,13 +42,20 @@ export function Menu({
       if (!root.current?.contains(e.target as Node)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      trigger.current?.focus() // back to the ⋯ button, not the page
     }
+    // A rotation or resize can move the button to the other half of the screen: close
+    // rather than leave the list where it no longer fits (R19-02).
+    const onResize = () => setOpen(false)
     document.addEventListener('pointerdown', onPointer)
     document.addEventListener('keydown', onKey)
+    window.addEventListener('resize', onResize)
     return () => {
       document.removeEventListener('pointerdown', onPointer)
       document.removeEventListener('keydown', onKey)
+      window.removeEventListener('resize', onResize)
     }
   }, [open])
 
@@ -57,6 +65,7 @@ export function Menu({
   return (
     <div ref={root} className="relative">
       <button
+        ref={trigger}
         type="button"
         aria-label={label}
         title={label}

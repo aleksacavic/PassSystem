@@ -427,3 +427,12 @@ With the longer tab names (Registrations, Scan activity) the event tab row was w
 scroll with a scrollbar line under it. On phones the four tabs now share the full width (`flex-auto`, 13px, tighter
 padding; "Scan activity" may break onto two lines) and the scrollbar is hidden; from `sm` up they are pills of their
 natural width as before. `src/pages/admin/EventDetailPage.tsx` only.
+
+## Codex review 19 remediation (no migration)
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R19-01 | Low | `usePagedList` records an accepted error as the latest settled response too, so an older request that settles later can no longer replace a newer error with old rows or an older error. Test: request 1 pending → `reload()` → request 2 fails → request 1 succeeds: the error stays and the old rows are not shown. |
+| R19-02 | Low | An open ⋯ menu closes when the window is resized or rotated, instead of staying on a side where it no longer fits; Escape now also returns focus to the ⋯ button. Tests in `src/components/ui/Menu.test.tsx`. |
+
+Results: unit 178 / 178 (owner asked for minimal testing on these small changes; CI runs the full suites).

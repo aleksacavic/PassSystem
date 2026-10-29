@@ -35,7 +35,11 @@ export function usePagedList<T>(query: string, fetch: () => Promise<T>, pollMs: 
         setData(d)
         setError(null)
       })
-      .catch((e: Error) => current() && setError(e.message))
+      .catch((e: Error) => {
+        if (!current()) return
+        applied.current = request // a newer error also fences older responses (R19-01)
+        setError(e.message)
+      })
       .finally(() => {
         if (inFlight.current?.request === request) inFlight.current = null
       })
