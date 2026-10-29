@@ -23,14 +23,29 @@ function current(p: StoredPass, now = Date.now()): boolean {
   return Number.isNaN(start) || start + KEEP_AFTER_START_MS > now
 }
 
+/** When this pass leaves the device (Infinity if its start date cannot be read). */
+function expiresAt(p: StoredPass): number {
+  const start = Date.parse(p.startsAt)
+  return Number.isNaN(start) ? Infinity : start + KEEP_AFTER_START_MS
+}
+
+const FIELDS = ['token', 'slug', 'eventName', 'attendeeName', 'startsAt', 'savedAt'] as const
+
+/** A stored entry is used only if every field is a string (storage can be edited or corrupted). */
+function wellFormed(p: unknown): p is StoredPass {
+  return (
+    typeof p === 'object' &&
+    p !== null &&
+    FIELDS.every((k) => typeof (p as Record<string, unknown>)[k] === 'string')
+  )
+}
+
 export function loadPasses(): StoredPass[] {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw) as unknown
-    return Array.isArray(parsed)
-      ? (parsed as StoredPass[]).filter((p) => p && typeof p.token === 'string' && current(p))
-      : []
+    return Array.isArray(parsed) ? (parsed as unknown[]).filter(wellFormed).filter((p) => current(p)) : []
   } catch {
     return []
   }
@@ -71,15 +86,21 @@ function subscribe(listener: () => void) {
   }
   listeners.add(listener)
   window.addEventListener('storage', onStorage)
+  armExpiry()
   return () => {
     listeners.delete(listener)
     window.removeEventListener('storage', onStorage)
+    if (listeners.size === 0) armExpiry()
   }
 }
 
-let cached: { raw: string | null; passes: StoredPass[] } | null = null
+let cached: { raw: string | null; passes: StoredPass[]; validUntil: number } | null = null
+let expiryTimer: ReturnType<typeof setTimeout> | undefined
 
-/** The same array until the stored value changes, as useSyncExternalStore requires. */
+/**
+ * The same array until the stored value changes or the next pass reaches its
+ * retention deadline, as useSyncExternalStore requires (R15-01).
+ */
 function snapshot(): StoredPass[] {
   let raw: string | null = null
   try {
@@ -87,8 +108,25 @@ function snapshot(): StoredPass[] {
   } catch {
     /* unavailable: treated as empty */
   }
-  if (!cached || cached.raw !== raw) cached = { raw, passes: loadPasses() }
+  if (!cached || cached.raw !== raw || Date.now() >= cached.validUntil) {
+    const passes = loadPasses()
+    cached = { raw, passes, validUntil: Math.min(Infinity, ...passes.map(expiresAt)) }
+    armExpiry()
+  }
   return cached.passes
+}
+
+/** While a list is shown, refresh it when its next pass expires. */
+function armExpiry() {
+  clearTimeout(expiryTimer)
+  expiryTimer = undefined
+  if (!cached || listeners.size === 0 || cached.validUntil === Infinity) return
+  // setTimeout takes at most 2^31-1 ms (about 24 days): a longer wait re-arms when it fires.
+  const wait = Math.min(Math.max(cached.validUntil - Date.now(), 0) + 1, 2 ** 31 - 1)
+  expiryTimer = setTimeout(() => {
+    if (cached && Date.now() < cached.validUntil) armExpiry()
+    else notify()
+  }, wait)
 }
 
 const none: StoredPass[] = []

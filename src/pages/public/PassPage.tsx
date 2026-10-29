@@ -8,7 +8,7 @@ import { dateParts, formatDateTime, formatEventDate } from '../../lib/datetime'
 import { errorMessage, useT } from '../../lib/i18n'
 import { formatPassToken, normalizePassToken, passUrl } from '../../lib/passToken'
 import { renderPassImage, safeFilename, saveImage } from '../../lib/qr'
-import { forgetPass, loadPasses } from '../../lib/passStorage'
+import { forgetPass, useStoredPasses } from '../../lib/passStorage'
 import type { PassView, PublicEvent } from '../../lib/types'
 import { CopyButton } from '../../components/CopyButton'
 import { GoogleWalletButton } from '../../components/GoogleWalletButton'
@@ -52,9 +52,9 @@ function PassPage() {
   const [state, setState] = useState<State>(initial)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [storedHere, setStoredHere] = useState(() =>
-    Boolean(token && loadPasses().some((p) => p.token === token)),
-  )
+  // Follows the saved-pass store, so it updates if the pass is saved or removed in another tab.
+  const stored = useStoredPasses()
+  const storedHere = Boolean(token && stored.some((p) => p.token === token))
   const url = token ? passUrl(token) : null
   const qr = useQrDataUrl(url)
 
@@ -332,7 +332,6 @@ function PassPage() {
               className="text-sm font-semibold text-on-brand underline"
               onClick={() => {
                 forgetPass(token)
-                setStoredHere(false)
               }}
             >
               {t('pass.forget')}

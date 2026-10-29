@@ -312,3 +312,15 @@ the search field, squeezed to almost no width on narrow screens.
   view.
 
 Results: unit 143 / 143, integration 138 / 138, E2E 10 / 10.
+
+## Codex review 15 remediation (no migration)
+
+Findings from `docs/CODEX_REVIEW_15.md`. Frontend only; tests are in `src/lib/passStorage.test.ts`.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R15-01 | Low | The saved-pass cache in `useStoredPasses()` is also valid only until the next stored pass reaches its retention deadline (start + 3 days): after that the next read recomputes, so a list opened later no longer shows an expired pass. While a list is shown, a timer notifies it at that deadline (re-arming for waits beyond setTimeout's ~24-day limit), so an open list drops the pass too. The same array is still returned while nothing changed. Tests: Codex's schedule (subscriber at 23:59:59 on day 3, unmount, new subscriber after the deadline sees nothing); an open list drops the expired pass but keeps a later one; snapshot identity across rerenders and a new array after a save. The first two fail on 26b1109. |
+
+Also from this review: stored entries are used only when every field is a string (an object-valued `eventName` or a token-only entry is ignored; test fails on 26b1109), and the pass page's "saved on this device" badge and Forget link follow the store instead of a one-time read.
+
+Results after this remediation: unit 147 / 147, integration 138 / 138, E2E 10 / 10.
