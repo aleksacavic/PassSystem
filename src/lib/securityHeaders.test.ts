@@ -20,19 +20,34 @@ interface Rule {
   matches: (path: string) => boolean
   /** [field name in lower case (HTTP names are case-insensitive), value] */
   headers: [string, string][]
+  /** Applies only to some requests (Vercel `has` / `missing`): cannot provide the baseline. */
+  conditional: boolean
+}
+
+/** Rule properties the checker understands; any other one fails the test instead of being ignored. */
+function onlyKnownKeys(rule: object, known: string[], file: string) {
+  const unknown = Object.keys(rule).filter((k) => !known.includes(k))
+  if (unknown.length) throw new Error(`unsupported header rule properties in ${file}: ${unknown.join(', ')}`)
 }
 
 /** Vercel `source` patterns (path-to-regexp): `:name*`, `:name` and raw regex groups. */
 function vercelRules(json: string): Rule[] {
   const config = JSON.parse(json) as {
-    headers: { source: string; headers: { key: string; value: string }[] }[]
+    headers: {
+      source: string
+      headers: { key: string; value: string }[]
+      has?: unknown[]
+      missing?: unknown[]
+    }[]
   }
   return config.headers.map((rule) => {
+    onlyKnownKeys(rule, ['source', 'headers', 'has', 'missing'], 'vercel.json')
     const pattern = rule.source.replace(/:\w+\*/g, '.*').replace(/:\w+/g, '[^/]+')
     const re = new RegExp(`^${pattern}$`)
     return {
       matches: (path) => re.test(path),
       headers: rule.headers.map((h): [string, string] => [h.key.toLowerCase(), h.value]),
+      conditional: Boolean(rule.has?.length || rule.missing?.length),
     }
   })
 }
@@ -45,6 +60,7 @@ function vercelRules(json: string): Rule[] {
 function netlifyRules(toml: string): Rule[] {
   const config = parseToml(toml) as { headers?: { for: string; values?: Record<string, unknown> }[] }
   return (config.headers ?? []).map((block) => {
+    onlyKnownKeys(block, ['for', 'values'], 'netlify.toml')
     const re = new RegExp(`^${block.for.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`)
     const headers = Object.entries(block.values ?? {}).flatMap(([name, value]): [string, string][] => {
       const values = Array.isArray(value) ? value : [value]
@@ -52,7 +68,7 @@ function netlifyRules(toml: string): Rule[] {
         throw new Error(`unsupported value for ${name} in netlify.toml`)
       return values.map((v): [string, string] => [name.toLowerCase(), v])
     })
-    return { matches: (path) => re.test(path), headers }
+    return { matches: (path) => re.test(path), headers, conditional: false }
   })
 }
 
@@ -61,9 +77,9 @@ function netlifyRules(toml: string): Rule[] {
  * in how they combine a field set twice (override, append), so a security
  * field must not be set to anything but the expected value on any route.
  */
-function effective(rules: Rule[], path: string) {
+function effective(rules: Rule[], path: string, onlyUnconditional = false) {
   const fields = new Map<string, string[]>()
-  for (const rule of rules.filter((r) => r.matches(path)))
+  for (const rule of rules.filter((r) => r.matches(path) && !(onlyUnconditional && r.conditional)))
     for (const [name, value] of rule.headers) fields.set(name, [...(fields.get(name) ?? []), value])
   return fields
 }
@@ -87,10 +103,15 @@ function missingOrDifferent(rules: Rule[]) {
   const expected = securityHeaders()
   const problems: string[] = []
   for (const path of PATHS) {
-    const got = effective(rules, path)
+    // Every request must get the field (from a rule with no conditions), and no
+    // rule that may apply, conditional or not, may set it to anything else.
+    const always = effective(rules, path, true)
+    const sometimes = effective(rules, path)
     for (const [key, value] of Object.entries(expected)) {
-      const values = got.get(key.toLowerCase()) ?? []
-      if (values.length === 0 || values.some((v) => v !== value)) problems.push(`${path} ${key}`)
+      const name = key.toLowerCase()
+      const base = always.get(name) ?? []
+      const any = sometimes.get(name) ?? []
+      if (base.length === 0 || any.some((v) => v !== value)) problems.push(`${path} ${key}`)
     }
   }
   return problems
@@ -168,5 +189,35 @@ describe('production security headers', () => {
     expect(scoped(`"content-security-policy" = "default-src *"`)).toEqual(scanner)
     expect(scoped(`content-security-policy = 'default-src *'`)).toEqual(scanner)
     expect(scoped(`'Content-Security-Policy' = 'default-src *'`)).toEqual(scanner)
+  })
+
+  it('a conditional rule (has / missing) cannot provide the baseline, but its values still count (R8-01)', () => {
+    const withGlobalRule = (change: (rule: Record<string, unknown>) => void) => {
+      const config = JSON.parse(read('vercel.json')) as { headers: Record<string, unknown>[] }
+      change(config.headers.find((r) => r.source === '/(.*)')!)
+      return missingOrDifferent(vercelRules(JSON.stringify(config)))
+    }
+    const csp = 'Content-Security-Policy'
+    expect(
+      withGlobalRule((r) => (r.has = [{ type: 'header', key: 'x-review8', value: 'present' }])),
+    ).toContain(`/ ${csp}`)
+    expect(withGlobalRule((r) => (r.missing = [{ type: 'header', key: 'x-review8' }]))).toContain(`/ ${csp}`)
+
+    // A conditional rule that loosens the policy for some requests is caught too.
+    const config = JSON.parse(read('vercel.json')) as { headers: unknown[] }
+    config.headers.push({
+      source: '/(.*)',
+      has: [{ type: 'query', key: 'debug' }],
+      headers: [{ key: 'Content-Security-Policy', value: 'default-src *' }],
+    })
+    expect(missingOrDifferent(vercelRules(JSON.stringify(config)))).toContain(`/ ${csp}`)
+
+    // A rule property the checker does not model fails instead of being ignored.
+    expect(() => withGlobalRule((r) => (r.locale = false))).toThrow(/unsupported header rule properties/)
+    expect(() =>
+      netlifyRules(
+        `${read('netlify.toml')}\n[[headers]]\n  for = "/*"\n  conditions = { Country = ["ae"] }\n  [headers.values]\n    X-Test = "1"\n`,
+      ),
+    ).toThrow(/unsupported header rule properties/)
   })
 })

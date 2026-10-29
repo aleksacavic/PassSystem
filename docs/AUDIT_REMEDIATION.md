@@ -202,3 +202,17 @@ Findings from `docs/CODEX_REVIEW_7.md`. Frontend and test changes only; tests ar
 | R7-03 | Low | The Netlify side of the header checker reads `netlify.toml` with a TOML parser (`smol-toml`, dev dependency), so quoted keys and single-quoted literal strings are seen like any other field; a value that is neither a string nor a list of strings fails the test. Test: a scoped CSP override written with a quoted key, a literal string, and both with different casing; it fails with the review 6 checker. |
 
 Results after this remediation: unit 108 / 108, integration 127 / 127, E2E 9 / 9.
+
+## Codex review 8 remediation (no migration)
+
+Findings from `docs/CODEX_REVIEW_8.md`: one Low finding; the review confirms R7-01..R7-03 fixed and finds no unfenced asynchronous step
+left in the camera hook. Test-only change in `src/lib/securityHeaders.test.ts`.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R8-01 | Low | A Vercel rule with `has` or `missing` conditions applies only to some requests, so it no longer counts as providing a required security header: every sampled route must get each one from an unconditional rule. A conditional rule's values still count as conflicts, since they apply to some requests. A rule property the checker does not model (Vercel or Netlify) now fails the test instead of being ignored. Test: Codex's `has` and `missing` mutations on the global rule, a conditional rule loosening the policy, and unknown properties on both providers; it fails with the review 7 checker. |
+
+Also in this deploy, outside the reviews: `6e7af0f` adds **Archive event** and **Restore as draft** to the event card menu
+(`src/pages/admin/EventsPage.tsx`, tests in `EventsPage.test.tsx` and `tests/integration/archive.test.ts`).
+
+Results after this remediation: unit 113 / 113, integration 129 / 129, E2E 9 / 9.
