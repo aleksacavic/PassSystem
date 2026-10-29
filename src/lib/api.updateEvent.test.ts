@@ -49,8 +49,23 @@ describe('updateEvent', () => {
     })
   })
 
-  it('without an expectation, no matching row means no permission', async () => {
-    db.result = { data: null, error: null }
-    await expect(updateEvent('ev-1', { name: 'Renamed' })).rejects.toMatchObject({ code: 'not_authorized' })
+  it('refuses to write without a version or status, instead of updating by ID alone (R10-01)', async () => {
+    for (const expect_ of [{}, { updatedAt: '' }, { updatedAt: undefined }, { status: undefined }]) {
+      // Callers that bypass the type (an unloaded form, plain JavaScript) are refused at run time too.
+      await expect(
+        updateEvent('ev-1', { name: 'Renamed' }, expect_ as unknown as { updatedAt: string }),
+      ).rejects.toMatchObject({ code: 'missing_version' })
+    }
+    expect(db.filters).toEqual([]) // no query was started
+  })
+
+  it('requires the expectation in the type (checked by npm run typecheck)', () => {
+    const typeOnly = () => {
+      // @ts-expect-error the expectation is required
+      void updateEvent('ev-1', { name: 'Renamed' })
+      // @ts-expect-error an empty expectation is not one
+      void updateEvent('ev-1', { name: 'Renamed' }, {})
+    }
+    expect(typeOnly).toBeTypeOf('function')
   })
 })

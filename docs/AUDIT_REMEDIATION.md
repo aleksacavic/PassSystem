@@ -232,3 +232,14 @@ Findings from `docs/CODEX_REVIEW_9.md` (archive feature and review 8). Database 
 Also from this review: the Archive confirmation now says what archiving does (registration page closes, existing passes show as not active and cannot be scanned), and Restore says that existing passes can be scanned again right away while the registration page stays closed until the event is published. The archive tests now also check that registrations and scan history survive archive and restore, and that an organizer of a different event is refused.
 
 Results after this remediation: unit 119 / 119, integration 138 / 138, E2E 9 / 9.
+
+## Codex review 10 remediation (no migration)
+
+Findings from `docs/CODEX_REVIEW_10.md`. Frontend only; tests are in `src/pages/admin/EventFormPage.test.tsx` (new) and
+`src/lib/api.updateEvent.test.ts`.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R10-01 | Medium | Editing an existing event now needs its current version. If loading the event fails, the page shows "This event could not be loaded … Nothing has been changed." with **Try again** and **Back**, instead of an editable default form, and submitting is refused while no version is loaded. `updateEvent` takes a required expectation, `{ updatedAt }` or `{ status }` (a type error without one), and also refuses at run time, before any query, when the version and status are both empty, so no application path updates an event by ID alone. Tests: load fails → no form, filling and saving whatever is shown sends nothing (on the old page this saved with `updatedAt: undefined`); retry loads the event and the save carries the loaded `updated_at`; `updateEvent` with `{}`, an empty or a missing version starts no query; `@ts-expect-error` checks that the expectation is required. |
+
+Results after this remediation: unit 122 / 122, integration 138 / 138, E2E 9 / 9.

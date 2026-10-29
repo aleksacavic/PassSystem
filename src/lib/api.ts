@@ -119,31 +119,30 @@ export async function createEvent(input: EventInput): Promise<EventRow> {
  * What the caller saw before changing the event. The update applies only if
  * the event is still like that, so an edit made from a stale page (another
  * organizer archived or published it meanwhile) is refused, not silently
- * applied over the newer change.
+ * applied over the newer change. It is required: there is no update by ID
+ * alone (R10-01).
  */
-export interface EventExpectation {
-  updatedAt?: string
-  status?: EventRow['status']
-}
+export type EventExpectation = { updatedAt: string } | { status: EventRow['status'] }
 
 export async function updateEvent(
   id: string,
   input: Partial<EventInput>,
-  expect: EventExpectation = {},
+  expect: EventExpectation,
 ): Promise<EventRow> {
+  const updatedAt = 'updatedAt' in expect ? expect.updatedAt : undefined
+  const status = 'status' in expect ? expect.status : undefined
+  // Also checked at run time, so an empty or missing value cannot fall back to an unconditional write.
+  if (!updatedAt && !status)
+    throw new ApiError('The event could not be saved. Reload the page and try again.', 'missing_version')
   let query = supabase.from('events').update(input).eq('id', id)
-  if (expect.updatedAt) query = query.eq('updated_at', expect.updatedAt)
-  if (expect.status) query = query.eq('status', expect.status)
+  query = updatedAt ? query.eq('updated_at', updatedAt) : query.eq('status', status!)
   const { data, error } = await query.select(EVENT_COLUMNS).maybeSingle()
   if (error) fail(error)
-  if (!data) {
-    if (expect.updatedAt || expect.status)
-      throw new ApiError(
-        'This event was changed by someone else (for example archived or published) since you opened it. Reload the page to see the current version, then try again.',
-        'edit_conflict',
-      )
-    throw new ApiError(messageFor('not_authorized'), 'not_authorized')
-  }
+  if (!data)
+    throw new ApiError(
+      'This event was changed by someone else (for example archived or published) since you opened it. Reload the page to see the current version, then try again.',
+      'edit_conflict',
+    )
   return data as EventRow
 }
 

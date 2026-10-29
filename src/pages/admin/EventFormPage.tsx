@@ -33,6 +33,9 @@ export default function EventFormPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [defaultTerms, setDefaultTerms] = useState<string | null>(null)
+  // An existing event is only editable once its current version has loaded (R10-01).
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   // Default attendance terms: prefilled for new events, used by "Reset to default".
   useEffect(() => {
@@ -46,14 +49,19 @@ export default function EventFormPage() {
 
   useEffect(() => {
     if (!id) return
+    let current = true
     getEvent(id)
       .then((e) => {
+        if (!current) return
         setOriginal(e)
         setForm(fromEvent(e))
       })
-      .catch((e: Error) => setSubmitError(e.message))
-      .finally(() => setLoading(false))
-  }, [id])
+      .catch((e: Error) => current && setLoadError(e.message))
+      .finally(() => current && setLoading(false))
+    return () => {
+      current = false
+    }
+  }, [id, attempt])
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => {
@@ -69,11 +77,12 @@ export default function EventFormPage() {
     const { errors, input } = validateEventForm(form)
     setErrors(errors)
     if (!input) return
+    if (!isNew && !original) return
     setSaving(true)
     try {
       const saved = isNew
         ? await createEvent(input)
-        : await updateEvent(id!, input, { updatedAt: original?.updated_at })
+        : await updateEvent(id!, input, { updatedAt: original!.updated_at })
       navigate(`/admin/events/${saved.id}`)
     } catch (err) {
       const msg = (err as Error).message
@@ -100,6 +109,32 @@ export default function EventFormPage() {
 
   if (loading) return <PageSpinner />
   if (isNew && !isAdmin) return <Alert tone="bad">Only administrators can create events.</Alert>
+  if (!isNew && !original)
+    return (
+      <div className="max-w-2xl space-y-4">
+        <Alert tone="bad" title="This event could not be loaded">
+          {loadError ?? 'Try again in a moment.'} Nothing has been changed.
+        </Alert>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            icon={RotateCcw}
+            onClick={() => {
+              setLoadError(null)
+              setLoading(true)
+              setAttempt((n) => n + 1)
+            }}
+          >
+            Try again
+          </Button>
+          <Link
+            to={`/admin/events/${id}`}
+            className="self-center text-sm font-semibold text-brand hover:underline"
+          >
+            ← Back
+          </Link>
+        </div>
+      </div>
+    )
 
   const slugChanged = original && original.slug !== form.slug && original.status !== 'draft'
 
