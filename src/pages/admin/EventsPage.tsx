@@ -147,11 +147,11 @@ function EventCard({
 
   async function setArchived(archive: boolean) {
     const question = archive
-      ? `Archive "${event.name}"? Guests can no longer open it and it moves to the Archived list. Registrations and scan history are kept, and you can restore it.`
-      : `Restore "${event.name}" as a draft? It stays hidden from guests until you publish it again.`
+      ? `Archive "${event.name}"? Its registration page closes, existing passes show as not active and can no longer be scanned, and it moves to the Archived list. Registrations and scan history are kept, and you can restore it.`
+      : `Restore "${event.name}" as a draft? Existing passes can be scanned again right away; the registration page stays closed until you publish it.`
     if (!window.confirm(question)) return
     try {
-      await updateEvent(event.id, { status: archive ? 'archived' : 'draft' })
+      await updateEvent(event.id, { status: archive ? 'archived' : 'draft' }, { status: event.status })
       onChanged()
     } catch (e) {
       onError((e as Error).message)

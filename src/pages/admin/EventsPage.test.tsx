@@ -56,7 +56,7 @@ describe('EventsPage archive and restore', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Archive event' }))
     await flush()
     expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Archive "Autumn Gala"?'))
-    expect(api.updateEvent).toHaveBeenCalledWith('ev-1', { status: 'archived' })
+    expect(api.updateEvent).toHaveBeenCalledWith('ev-1', { status: 'archived' }, { status: 'published' })
     expect(api.getEventSummaries).toHaveBeenCalledTimes(2)
   })
 
@@ -79,7 +79,7 @@ describe('EventsPage archive and restore', () => {
     expect(screen.queryByRole('button', { name: 'Archive event' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Restore as draft' }))
     await flush()
-    expect(api.updateEvent).toHaveBeenCalledWith('ev-1', { status: 'draft' })
+    expect(api.updateEvent).toHaveBeenCalledWith('ev-1', { status: 'draft' }, { status: 'archived' })
   })
 
   it('shows the error if the change is refused', async () => {

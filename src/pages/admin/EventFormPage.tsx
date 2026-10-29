@@ -71,7 +71,9 @@ export default function EventFormPage() {
     if (!input) return
     setSaving(true)
     try {
-      const saved = isNew ? await createEvent(input) : await updateEvent(id!, input)
+      const saved = isNew
+        ? await createEvent(input)
+        : await updateEvent(id!, input, { updatedAt: original?.updated_at })
       navigate(`/admin/events/${saved.id}`)
     } catch (err) {
       const msg = (err as Error).message

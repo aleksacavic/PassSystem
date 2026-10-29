@@ -48,6 +48,8 @@ const en = {
   'error.network': 'Network error. Check your connection and try again.',
   'error.generic': 'Something went wrong. Please try again in a moment.',
   'error.rate_limited': 'Too many attempts from this network. Please wait a minute and try again.',
+  'error.rate_limited_hour':
+    'Too many registrations from this network in the last hour. Please try again later or use mobile data.',
   'error.event_not_found': 'This event could not be found.',
   'error.registration_closed': 'Registration for this event is closed.',
   'error.registration_not_open': 'Registration for this event has not opened yet.',
@@ -76,6 +78,9 @@ const en = {
   'pass.status.registered': 'Valid',
   'pass.status.used': 'Used',
   'pass.status.revoked': 'Revoked',
+  'pass.status.inactive': 'Not active',
+  'pass.inactive':
+    'This event is no longer active, so this pass cannot be used for entry. Contact the organizer.',
   'pass.calendar': 'Add to calendar',
   'pass.save': 'Save pass image',
   'pass.saveError': 'Could not save the image. Take a screenshot instead.',
@@ -140,6 +145,8 @@ const ar: Record<MessageKey, string> = {
   'error.network': 'خطأ في الاتصال. تحقق من الشبكة وحاول مرة أخرى.',
   'error.generic': 'حدث خطأ ما. يرجى المحاولة مرة أخرى بعد قليل.',
   'error.rate_limited': 'محاولات كثيرة من هذه الشبكة. يرجى الانتظار دقيقة ثم المحاولة.',
+  'error.rate_limited_hour':
+    'تسجيلات كثيرة من هذه الشبكة خلال الساعة الماضية. يرجى المحاولة لاحقاً أو استخدام بيانات الجوال.',
   'error.event_not_found': 'تعذّر العثور على هذه الفعالية.',
   'error.registration_closed': 'التسجيل في هذه الفعالية مغلق.',
   'error.registration_not_open': 'لم يبدأ التسجيل في هذه الفعالية بعد.',
@@ -166,6 +173,8 @@ const ar: Record<MessageKey, string> = {
   'pass.status.registered': 'صالحة',
   'pass.status.used': 'مستخدمة',
   'pass.status.revoked': 'ملغاة',
+  'pass.status.inactive': 'غير نشطة',
+  'pass.inactive': 'لم تعد هذه الفعالية نشطة، لذا لا يمكن استخدام هذه التذكرة للدخول. تواصل مع المنظِّم.',
   'pass.calendar': 'أضف إلى التقويم',
   'pass.save': 'احفظ صورة التذكرة',
   'pass.saveError': 'تعذّر حفظ الصورة. التقط لقطة شاشة بدلاً من ذلك.',

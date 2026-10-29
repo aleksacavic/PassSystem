@@ -13,8 +13,8 @@ export default async function setup() {
     const db2 = new pg.Client({ connectionString: env.dbUrl })
     await db2.connect()
     await db2.query(`update private.settings set value = d.v from (values
-      ('register_per_ip_per_minute', 30), ('register_per_ip_per_hour', 400), ('register_per_event_per_minute', 600),
-      ('pass_lookup_per_ip_per_minute', 120), ('public_event_per_ip_per_minute', 300)
+      ('register_per_ip_per_minute', 600), ('register_per_ip_per_hour', 6000), ('register_per_event_per_minute', 1200),
+      ('pass_lookup_per_ip_per_minute', 3000), ('public_event_per_ip_per_minute', 3000)
     ) as d(k, v) where key = d.k`)
     // Counters accumulated under the lifted limits would otherwise trip the
     // restored defaults for whatever runs next (e.g. the E2E suite).

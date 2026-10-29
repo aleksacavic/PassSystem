@@ -231,9 +231,11 @@ CI (`.github/workflows/ci.yml`) runs all of the above on every push and pull req
 
 - **Rate limiting is IP-based and best-effort.** On Supabase Cloud the client IP comes from `cf-connecting-ip`,
   which Cloudflare sets. Self-hosted deployments without Cloudflare must run
-  `update private.settings set value = 0 where key = 'trust_cf_connecting_ip';`. Attendees on shared venue Wi-Fi
-  share one IP, so the defaults are generous (30/min, 400/h per IP; 600/min per event) and can be tuned in
-  `private.settings`. There is no CAPTCHA yet. A Cloudflare Turnstile or hCaptcha integration is the recommended
+  `update private.settings set value = 0 where key = 'trust_cf_connecting_ip';`. Attendees on shared venue Wi-Fi or
+  carrier NAT share one address, so the limits are sized for a crowd behind one network (migration 011: 600
+  registrations/min and 6,000/h per address, 1,200/min per event, 3,000 pass and event-page lookups/min per address:
+  about 1,000 arrivals in ten minutes with a retry each). Raise them in `private.settings` before a bigger on-site
+  rush. There is no CAPTCHA yet. A Cloudflare Turnstile or hCaptcha integration is the recommended
   next step if spam becomes a problem.
 - **No offline admission mode**, by design: one-time admission needs a single source of truth.
 - **No pass emails.** The email field is stored for the organizer. Sending passes by email is a deferred

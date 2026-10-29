@@ -216,3 +216,19 @@ Also in this deploy, outside the reviews: `6e7af0f` adds **Archive event** and *
 (`src/pages/admin/EventsPage.tsx`, tests in `EventsPage.test.tsx` and `tests/integration/archive.test.ts`).
 
 Results after this remediation: unit 113 / 113, integration 129 / 129, E2E 9 / 9.
+
+## Codex review 9 remediation (migration 011)
+
+Findings from `docs/CODEX_REVIEW_9.md` (archive feature and review 8). Database changes are in
+`supabase/migrations/20261029000011_review9_remediation.sql`; tests are in `tests/integration/review9-regressions.test.ts`,
+`src/lib/api.updateEvent.test.ts`, `src/pages/public/PassPage.test.tsx` (new) and `src/pages/admin/EventsPage.test.tsx`.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R9-01 | Medium | Every event update states what it expects to overwrite (`updateEvent(id, input, expect)`): the edit form sends the `updated_at` it loaded, and Archive, Restore and Publish send the status they showed. If someone changed the event meanwhile, nothing is updated and the page says it was changed by someone else and asks to reload, so a stale form can no longer silently republish an archived event. Tests: the exact query shape against the database (stale form after archive updates nothing and the event stays hidden; a fresh version applies; a card showing an older status updates nothing), and unit tests that `updateEvent` sends the expectation and reports the conflict. The database tests pass on the old code too (they check the database behaviour the fix relies on); the unit tests cover the fix. |
+| R9-02 | Medium | A pass for an archived event is shown as **Not active** with an explanation; its QR is greyed out and the calendar, image and Google Wallet actions are hidden. The pass and its history are kept. `wallet_pass_data` refuses archived events, and the `google-wallet` function answers `409 event_archived`. Scanning was already refused. Tests: `get_pass` reports the archived event, the Wallet lookup and the real Edge Function refuse it and accept it again after Restore, and the pass page shows the archived state (fails on the old page). Wallet objects already saved by guests are not updated remotely. |
+| R9-03 | Medium | Shared-network limits raised to Codex's starting values for about 1,000 arrivals in ten minutes behind one address: registrations 600/min and 6,000/h per address, 1,200/min per event, pass and event-page lookups 3,000/min per address. A registration refused by the hourly limit now says so (`window: 'hour'`, message "try again later or use mobile data") instead of "wait a minute". Tests: both windows answer differently (fails on 009's function). |
+
+Also from this review: the Archive confirmation now says what archiving does (registration page closes, existing passes show as not active and cannot be scanned), and Restore says that existing passes can be scanned again right away while the registration page stays closed until the event is published. The archive tests now also check that registrations and scan history survive archive and restore, and that an organizer of a different event is refused.
+
+Results after this remediation: unit 119 / 119, integration 138 / 138, E2E 9 / 9.

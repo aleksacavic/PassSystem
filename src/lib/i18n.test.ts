@@ -16,5 +16,6 @@ describe('translate', () => {
     expect(errorMessage(t, null)).toBe(translate('ar', 'error.generic'))
     expect(errorMessage(t, 'XX000', 'pass.loadErrorBody')).toBe(translate('ar', 'pass.loadErrorBody'))
     expect(errorMessage(t, 'network')).toBe(translate('ar', 'error.network'))
+    expect(errorMessage(t, 'rate_limited_hour')).toBe(translate('ar', 'error.rate_limited_hour'))
   })
 })

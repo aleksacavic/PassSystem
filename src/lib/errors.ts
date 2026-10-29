@@ -2,6 +2,7 @@ import type { PostgrestError } from '@supabase/supabase-js'
 
 const MESSAGES: Record<string, string> = {
   rate_limited: 'Too many attempts from this network. Please wait a minute and try again.',
+  rate_limited_hour: 'Too many registrations from this network in the last hour. Please try again later.',
   event_not_found: 'This event could not be found.',
   registration_closed: 'Registration for this event is closed.',
   registration_not_open: 'Registration for this event has not opened yet.',

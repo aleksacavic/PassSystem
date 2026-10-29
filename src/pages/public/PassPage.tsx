@@ -136,7 +136,9 @@ function PassPage() {
 
   const { pass, event } = state
   const fullName = `${pass.first_name} ${pass.last_name}`
-  const usable = pass.status === 'registered'
+  // An archived event admits no one: its passes are kept but shown as not active.
+  const inactive = event.status === 'archived'
+  const usable = pass.status === 'registered' && !inactive
   const when = dateParts(event.starts_at, event.timezone, locale)
 
   async function onSave() {
@@ -203,7 +205,7 @@ function PassPage() {
               <span className="text-[11px] font-extrabold tracking-[0.14em] text-brand uppercase">
                 {t('pass.kicker')}
               </span>
-              <PassStatus status={pass.status} />
+              <PassStatus status={pass.status} inactive={inactive} />
             </div>
             <h1 className="text-2xl leading-tight font-extrabold tracking-tight break-words">
               <bdi>{event.name}</bdi>
@@ -266,7 +268,12 @@ function PassPage() {
                 </p>
               )}
             </div>
-            {pass.status === 'registered' && (
+            {pass.status === 'registered' && inactive && (
+              <p className="mt-3 text-[15px] font-semibold text-warning-fg" data-testid="pass-inactive">
+                {t('pass.inactive')}
+              </p>
+            )}
+            {usable && (
               <p className="mt-2 text-sm text-fg-subtle">
                 {t('pass.show')} {t('pass.brightness')}
               </p>
@@ -338,8 +345,14 @@ function PassPage() {
   )
 }
 
-function PassStatus({ status }: { status: PassView['status'] }) {
+function PassStatus({ status, inactive }: { status: PassView['status']; inactive: boolean }) {
   const { t } = useT()
+  if (status === 'registered' && inactive)
+    return (
+      <Badge tone="warn" className="text-sm">
+        {t('pass.status.inactive')}
+      </Badge>
+    )
   if (status === 'checked_in')
     return (
       <Badge tone="ok" className="text-sm">

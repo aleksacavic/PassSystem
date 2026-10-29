@@ -67,9 +67,11 @@ export async function registerForEvent(input: {
     p_terms_version: input.termsVersion ?? null,
   })
   if (error) fail(error)
-  const res = data as ({ ok: true } & RegistrationResult) | RpcFailure
+  const res = data as ({ ok: true } & RegistrationResult) | (RpcFailure & { window?: string })
   if (!res.ok) {
-    const err = new ApiError(messageFor(res.error), res.error) as ApiError & { field?: string }
+    // The hourly limit needs a different message: waiting a minute does not help.
+    const code = res.error === 'rate_limited' && res.window === 'hour' ? 'rate_limited_hour' : res.error
+    const err = new ApiError(messageFor(code), code) as ApiError & { field?: string }
     err.field = res.field
     throw err
   }
@@ -113,14 +115,35 @@ export async function createEvent(input: EventInput): Promise<EventRow> {
   return data as EventRow
 }
 
-export async function updateEvent(id: string, input: Partial<EventInput>): Promise<EventRow> {
-  const { data, error } = await supabase
-    .from('events')
-    .update(input)
-    .eq('id', id)
-    .select(EVENT_COLUMNS)
-    .single()
+/**
+ * What the caller saw before changing the event. The update applies only if
+ * the event is still like that, so an edit made from a stale page (another
+ * organizer archived or published it meanwhile) is refused, not silently
+ * applied over the newer change.
+ */
+export interface EventExpectation {
+  updatedAt?: string
+  status?: EventRow['status']
+}
+
+export async function updateEvent(
+  id: string,
+  input: Partial<EventInput>,
+  expect: EventExpectation = {},
+): Promise<EventRow> {
+  let query = supabase.from('events').update(input).eq('id', id)
+  if (expect.updatedAt) query = query.eq('updated_at', expect.updatedAt)
+  if (expect.status) query = query.eq('status', expect.status)
+  const { data, error } = await query.select(EVENT_COLUMNS).maybeSingle()
   if (error) fail(error)
+  if (!data) {
+    if (expect.updatedAt || expect.status)
+      throw new ApiError(
+        'This event was changed by someone else (for example archived or published) since you opened it. Reload the page to see the current version, then try again.',
+        'edit_conflict',
+      )
+    throw new ApiError(messageFor('not_authorized'), 'not_authorized')
+  }
   return data as EventRow
 }
 

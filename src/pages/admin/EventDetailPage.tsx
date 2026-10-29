@@ -68,7 +68,7 @@ export default function EventDetailPage() {
     if (!event) return
     setPublishing(true)
     try {
-      setEvent(await updateEvent(event.id, { status: 'published' }))
+      setEvent(await updateEvent(event.id, { status: 'published' }, { status: event.status }))
       loadSummary()
     } catch (e) {
       setError((e as Error).message)

@@ -2,7 +2,8 @@
 //
 // The attendee's browser sends the raw pass token (their credential). The
 // function looks the pass up with the service role, then returns a signed
-// save-to-wallet URL. Nothing is returned for unknown or revoked passes.
+// save-to-wallet URL. Nothing is returned for unknown or revoked passes, or for
+// passes of an archived event.
 // Secrets (Supabase → Edge Functions → Secrets):
 //   GOOGLE_WALLET_ISSUER_ID and GOOGLE_WALLET_SERVICE_ACCOUNT_JSON (the whole
 //   downloaded key file), or GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL +
@@ -64,9 +65,14 @@ Deno.serve(async (req) => {
   }
   const data = (await res.json()) as ({ ok: true } & WalletPassData) | { ok: false; error: string }
   if (!data.ok) {
-    return data.error === 'pass_revoked'
-      ? fail(410, 'pass_revoked', 'This pass has been revoked.')
-      : fail(404, 'pass_not_found', 'This pass could not be found.')
+    if (data.error === 'pass_revoked') return fail(410, 'pass_revoked', 'This pass has been revoked.')
+    if (data.error === 'event_archived')
+      return fail(
+        409,
+        'event_archived',
+        'This event is no longer active, so its pass cannot be added to Google Wallet.',
+      )
+    return fail(404, 'pass_not_found', 'This pass could not be found.')
   }
 
   try {
