@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react'
 import {
   forwardRef,
   useId,
@@ -68,5 +69,14 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
   { className, ...rest },
   ref,
 ) {
-  return <select ref={ref} className={cx(control, 'pr-9', className)} {...rest} />
+  // The browser's own arrow sits on the very edge of the field; draw our own chevron with room around it.
+  return (
+    <div className="relative">
+      <select ref={ref} className={cx(control, 'appearance-none pe-11', className)} {...rest} />
+      <ChevronDown
+        aria-hidden="true"
+        className="pointer-events-none absolute end-4 top-1/2 size-4 -translate-y-1/2 text-fg-subtle"
+      />
+    </div>
+  )
 })
