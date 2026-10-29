@@ -173,3 +173,56 @@ describe('EventFormPage moving between events (R11-01)', () => {
     expect(api.createEvent).toHaveBeenCalledWith(expect.objectContaining({ name: 'Overwritten' }))
   })
 })
+
+// R12-02: a save or delete that finishes after moving on must not redirect the editor now open.
+describe('EventFormPage late completions (R12-02)', () => {
+  async function startOnAThenEditB(start: () => Promise<void>) {
+    api.getEvent.mockImplementation(async (id: string) => (id === ID ? archived : springFair))
+    const router = createMemoryRouter(
+      [
+        { path: '/admin/events/:id/edit', element: <EventFormPage /> },
+        { path: '/admin/events/:id', element: <p>Event detail</p> },
+        { path: '/admin', element: <p>Events list</p> },
+      ],
+      { initialEntries: [`/admin/events/${ID}/edit`] },
+    )
+    render(<RouterProvider router={router} />)
+    await flush()
+    await start()
+    await act(async () => {
+      await router.navigate(`/admin/events/${B}/edit`)
+    })
+    await flush()
+    fireEvent.change(screen.getByLabelText(/Event name/), { target: { value: 'Spring Fair, unsaved' } })
+    return router
+  }
+
+  it("A's save finishing later keeps B's editor and its unsaved change", async () => {
+    const saved = deferred<typeof archived>()
+    api.updateEvent.mockReturnValue(saved.promise)
+    const router = await startOnAThenEditB(() => completeAndSave())
+    expect(api.updateEvent).toHaveBeenCalledWith(ID, expect.anything(), { updatedAt: VERSION })
+
+    await act(async () => saved.resolve(archived))
+    await flush()
+    expect(router.state.location.pathname).toBe(`/admin/events/${B}/edit`)
+    expect(screen.getByLabelText(/Event name/)).toHaveValue('Spring Fair, unsaved')
+  })
+
+  it("A's delete finishing later keeps B's editor and its unsaved change", async () => {
+    const deleted = deferred<void>()
+    api.deleteEvent.mockReturnValue(deleted.promise)
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const router = await startOnAThenEditB(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Delete event' }))
+      await flush()
+    })
+    expect(api.deleteEvent).toHaveBeenCalledWith(ID)
+
+    await act(async () => deleted.resolve())
+    await flush()
+    expect(router.state.location.pathname).toBe(`/admin/events/${B}/edit`)
+    expect(screen.getByLabelText(/Event name/)).toHaveValue('Spring Fair, unsaved')
+    confirmSpy.mockRestore()
+  })
+})

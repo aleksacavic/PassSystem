@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { getEvent, getEventSummaries, updateEvent } from '../../lib/api'
 import { formatEventDate } from '../../lib/datetime'
+import { useIsCurrent } from '../../lib/useIsCurrent'
 import { usePolling } from '../../lib/usePolling'
 import type { EventRow, EventSummary } from '../../lib/types'
 import { PageHeader } from '../../components/AdminLayout'
@@ -22,8 +23,19 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]['key']
 
+/**
+ * One detail screen per event: moving to another event remounts the header,
+ * summary and tabs (their lists, filters and open dialogs), so nothing shown or
+ * actionable belongs to the previous event, and its late responses land in the
+ * discarded instance (R12-01).
+ */
 export default function EventDetailPage() {
   const { id = '' } = useParams()
+  return <EventDetail key={id} id={id} />
+}
+
+function EventDetail({ id }: { id: string }) {
+  const isCurrent = useIsCurrent()
   const [params, setParams] = useSearchParams()
   const tab = (TABS.find((t) => t.key === params.get('tab'))?.key ?? 'overview') as TabKey
   const [event, setEvent] = useState<EventRow | null>(null)
@@ -68,12 +80,14 @@ export default function EventDetailPage() {
     if (!event) return
     setPublishing(true)
     try {
-      setEvent(await updateEvent(event.id, { status: 'published' }, { status: event.status }))
+      const published = await updateEvent(event.id, { status: 'published' }, { status: event.status })
+      if (!isCurrent()) return
+      setEvent(published)
       loadSummary()
     } catch (e) {
-      setError((e as Error).message)
+      if (isCurrent()) setError((e as Error).message)
     } finally {
-      setPublishing(false)
+      if (isCurrent()) setPublishing(false)
     }
   }
 
@@ -158,10 +172,11 @@ export default function EventDetailPage() {
         ))}
       </div>
 
-      {tab === 'overview' && <OverviewTab event={event} summary={summary} />}
-      {tab === 'attendees' && <AttendeesTab event={event} onChanged={loadSummary} />}
-      {tab === 'staff' && <StaffTab event={event} isAdmin={role === 'admin'} />}
-      {tab === 'activity' && <ActivityTab event={event} />}
+      {/* Keyed by event too, so a tab never carries one event's rows or dialogs to another. */}
+      {tab === 'overview' && <OverviewTab key={event.id} event={event} summary={summary} />}
+      {tab === 'attendees' && <AttendeesTab key={event.id} event={event} onChanged={loadSummary} />}
+      {tab === 'staff' && <StaffTab key={event.id} event={event} isAdmin={role === 'admin'} />}
+      {tab === 'activity' && <ActivityTab key={event.id} event={event} />}
     </div>
   )
 }

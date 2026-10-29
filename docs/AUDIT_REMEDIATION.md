@@ -257,3 +257,17 @@ Also from this review: `updateEvent` called without any expectation object (plai
 `missing_version` error instead of a `TypeError`, still before any query (test covers `undefined` and `null`).
 
 Results after this remediation: unit 125 / 125, integration 138 / 138, E2E 9 / 9.
+
+## Codex review 12 remediation (no migration)
+
+Findings from `docs/CODEX_REVIEW_12.md`. Frontend only; tests are in `src/pages/admin/EventDetailPage.test.tsx` (new) and
+`src/pages/admin/EventFormPage.test.tsx`.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R12-01 | Medium | The event detail screen is bound to the route's event, like the editor and the scanner: `EventDetailPage` renders `<EventDetail key={id}>`, so moving to another event remounts the header, summary, Publish state and every tab with its rows, filters, typed staff email and open dialogs. Responses for the previous event can only reach the discarded instance. Each tab is also keyed by `event.id`. Tests (real page and router, mocked API), using Codex's four schedules: A → B pending (A's Publish is gone; nothing is published); A's Revoke dialog open → B's attendees loaded (no dialog, `revokeRegistration` not called, only B's rows); A's load resolving after B loaded (heading stays B); A's staff → B's staff pending (A's row gone, `removeEventStaff` not called). On 3570022 the first, second and fourth sent the call for A, and the third showed Event A under B's route. |
+| R12-02 | Low | New `useIsCurrent()` (`src/lib/useIsCurrent.ts`): after each await, the editor's save and delete and the detail page's Publish check that the screen that started them is still the one shown before navigating or updating state. The operation itself still completes. Tests: A's save finishing after moving to B's editor leaves the router on B's edit URL with B's unsaved change (it used to go to A's detail page); the same for delete (it used to go to `/admin`); A's Publish finishing after moving to B leaves B shown. All three fail on 3570022. |
+
+Also checked: the scanner was already keyed by event (`<Scanner key={eventId}>`); Users has no record route parameter. The Activity and Overview tabs' log and name lookups are reset by the same keys.
+
+Results after this remediation: unit 132 / 132, integration 138 / 138, E2E 9 / 9.

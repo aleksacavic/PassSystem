@@ -5,6 +5,7 @@ import { createEvent, deleteEvent, getDefaultEventTerms, getEvent, updateEvent }
 import { emptyForm, fromEvent, validateEventForm, type Errors, type FormState } from '../../lib/eventForm'
 import { slugify } from '../../lib/slug'
 import type { EventRow, EventStatus } from '../../lib/types'
+import { useIsCurrent } from '../../lib/useIsCurrent'
 import { useAuth } from '../../auth/AuthProvider'
 import { PageHeader } from '../../components/AdminLayout'
 import { Alert, Button, Card, Field, Input, PageSpinner, Select, TextArea } from '../../components/ui'
@@ -32,6 +33,7 @@ export default function EventFormPage() {
 function EventEditor({ id }: { id: string | undefined }) {
   const isNew = !id
   const navigate = useNavigate()
+  const isCurrent = useIsCurrent()
   const { isAdmin } = useAuth()
   const [form, setForm] = useState<FormState>(emptyForm)
   const [slugTouched, setSlugTouched] = useState(!isNew)
@@ -94,13 +96,15 @@ function EventEditor({ id }: { id: string | undefined }) {
       const saved = isNew
         ? await createEvent(input)
         : await updateEvent(id!, input, { updatedAt: loaded!.updated_at })
-      navigate(`/admin/events/${saved.id}`)
+      // Saved; but if the user has moved to another page meanwhile, stay there.
+      if (isCurrent()) navigate(`/admin/events/${saved.id}`)
     } catch (err) {
+      if (!isCurrent()) return
       const msg = (err as Error).message
       if (/already in use/i.test(msg)) setErrors({ slug: 'This link is already used by another event.' })
       else setSubmitError(msg)
     } finally {
-      setSaving(false)
+      if (isCurrent()) setSaving(false)
     }
   }
 
@@ -112,9 +116,9 @@ function EventEditor({ id }: { id: string | undefined }) {
       return
     try {
       await deleteEvent(id)
-      navigate('/admin')
+      if (isCurrent()) navigate('/admin')
     } catch (err) {
-      setSubmitError((err as Error).message)
+      if (isCurrent()) setSubmitError((err as Error).message)
     }
   }
 
