@@ -125,3 +125,13 @@ export async function setInviteRole(userId: string, admin: boolean) {
   }
   return service.rpc('set_pending_admin', { p_user_id: userId, p_admin: admin, p_generation: generation })
 }
+
+/**
+ * Per-minute rate limits count in fixed calendar-minute windows (database clock).
+ * Call before a burst that must land in one window: waits for the next minute
+ * if fewer than 10 seconds of the current one remain.
+ */
+export async function inFreshRateWindow() {
+  const [row] = await db<{ s: number }>(`select extract(second from now())::float8 as s`)
+  if (row!.s > 50) await new Promise((r) => setTimeout(r, (61 - row!.s) * 1000))
+}

@@ -17,6 +17,7 @@ import {
   type StaffUser,
   termsVersion,
   setInviteRole,
+  inFreshRateWindow,
 } from './helpers'
 
 let admin: StaffUser
@@ -147,6 +148,7 @@ describe('[F-02] rate-limit IP source', () => {
     await db(`delete from private.rate_limit_buckets`)
     await db(`update private.settings set value = 5 where key = 'register_per_ip_per_minute'`)
     try {
+      await inFreshRateWindow()
       let ok = 0
       for (let i = 0; i < 8; i++) {
         const { data } = await anonClient({ 'cf-connecting-ip': `203.0.113.${i}` }).rpc(

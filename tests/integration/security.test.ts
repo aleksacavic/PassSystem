@@ -9,6 +9,7 @@ import {
   type StaffUser,
   type TestEvent,
   termsVersion,
+  inFreshRateWindow,
 } from './helpers'
 
 let admin: StaffUser
@@ -279,6 +280,7 @@ describe('rate limiting', () => {
     await db(`delete from private.rate_limit_buckets`)
     await db(`update private.settings set value = 5 where key = 'register_per_ip_per_minute'`)
     try {
+      await inFreshRateWindow()
       const results = []
       for (let i = 0; i < 8; i++) {
         const client = anonClient({ 'X-Forwarded-For': `10.0.0.${i}`, 'cf-connecting-ip': `10.1.0.${i}` })
@@ -306,6 +308,7 @@ describe('rate limiting', () => {
     await db(`delete from private.rate_limit_buckets`)
     await db(`update private.settings set value = 10 where key = 'pass_lookup_per_ip_per_minute'`)
     try {
+      await inFreshRateWindow()
       const anon = anonClient()
       const out = []
       for (let i = 0; i < 13; i++)
