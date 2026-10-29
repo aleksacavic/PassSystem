@@ -51,3 +51,34 @@ describe('registrationHistory', () => {
     expect(registrationHistory(['not a date', '2026-10-29T10:00:00Z'], 'UTC').total).toBe(1)
   })
 })
+
+describe('registrationHistory edges (R17-03, R17-04)', () => {
+  it('a fractional-offset zone starts at the first registration, with no empty period before it', () => {
+    // 08:40Z is 14:10 in Kolkata (UTC+5:30); 08:10Z is 13:40, just before the half-hour boundary.
+    expect(registrationHistory(['2026-10-29T08:40:00Z'], 'Asia/Kolkata').buckets.map((b) => b.label)).toEqual(
+      ['14:00'],
+    )
+    expect(registrationHistory(['2026-10-29T08:10:00Z'], 'Asia/Kolkata').buckets.map((b) => b.label)).toEqual(
+      ['13:00'],
+    )
+    // Kathmandu (UTC+5:45), and a daily chart starting just after local midnight.
+    expect(
+      registrationHistory(['2026-10-29T08:20:00Z'], 'Asia/Kathmandu').buckets.map((b) => b.label),
+    ).toEqual(['14:00'])
+    const daily = registrationHistory(['2026-10-28T18:40:00Z', '2026-11-02T10:00:00Z'], 'Asia/Kolkata')
+    expect(daily.buckets[0]).toMatchObject({ key: '2026-10-29', count: 1 }) // 00:10 local on the 29th
+  })
+
+  it('handles a very large number of timestamps without throwing', () => {
+    const many = Array(200_000).fill('2026-10-29T10:00:00Z')
+    const h = registrationHistory(many, 'Asia/Dubai')
+    expect(h.total).toBe(200_000)
+    expect(h.buckets).toHaveLength(1)
+  })
+
+  it('names the year when the chart spans more than one', () => {
+    const h = registrationHistory(['2026-12-30T10:00:00Z', '2027-01-02T10:00:00Z'], 'UTC')
+    expect(h.buckets[0]!.title).toBe('30 Dec 2026')
+    expect(h.buckets.at(-1)!.title).toBe('2 Jan 2027')
+  })
+})

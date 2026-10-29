@@ -2,7 +2,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const api = vi.hoisted(() => ({ listAllRegistrations: vi.fn() }))
+const api = vi.hoisted(() => ({ listRegistrationTimes: vi.fn() }))
 vi.mock('../../../lib/api', () => api)
 import { RegistrationHistory } from './RegistrationHistory'
 
@@ -25,24 +25,24 @@ const event = {
   updated_at: '2026-10-29T08:00:00Z',
   created_by: null,
 }
-const at = (registered_at: string) => ({ registered_at })
+const at = (registered_at: string) => registered_at
 const flush = () =>
   act(async () => {
     for (let i = 0; i < 3; i++) await new Promise((r) => setTimeout(r, 0))
   })
 
-beforeEach(() => api.listAllRegistrations.mockReset())
+beforeEach(() => api.listRegistrationTimes.mockReset())
 
 describe('RegistrationHistory', () => {
   it('is collapsed and loads nothing until opened', () => {
     render(<RegistrationHistory event={event} />)
     const toggle = screen.getByRole('button', { name: /Registration history/ })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(api.listAllRegistrations).not.toHaveBeenCalled()
+    expect(api.listRegistrationTimes).not.toHaveBeenCalled()
   })
 
   it('opens, shows the total, the busiest hour and one bar per hour, and loads once', async () => {
-    api.listAllRegistrations.mockResolvedValue([
+    api.listRegistrationTimes.mockResolvedValue([
       at('2026-10-29T10:05:00Z'),
       at('2026-10-29T10:40:00Z'),
       at('2026-10-29T12:10:00Z'),
@@ -52,7 +52,7 @@ describe('RegistrationHistory', () => {
     fireEvent.click(toggle)
     await flush()
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(api.listAllRegistrations).toHaveBeenCalledWith('ev-1')
+    expect(api.listRegistrationTimes).toHaveBeenCalledWith('ev-1')
     expect(screen.getByText('3')).toBeInTheDocument()
     expect(screen.getByText('29 Oct, 14:00–15:00')).toBeInTheDocument() // busiest hour, Dubai time
     const bars = screen.getAllByTestId('history-bar')
@@ -68,11 +68,11 @@ describe('RegistrationHistory', () => {
     fireEvent.click(toggle) // close and reopen: no second load
     fireEvent.click(toggle)
     await flush()
-    expect(api.listAllRegistrations).toHaveBeenCalledTimes(1)
+    expect(api.listRegistrationTimes).toHaveBeenCalledTimes(1)
   })
 
   it('has a table view with the same numbers', async () => {
-    api.listAllRegistrations.mockResolvedValue([at('2026-10-29T10:05:00Z'), at('2026-10-29T12:10:00Z')])
+    api.listRegistrationTimes.mockResolvedValue([at('2026-10-29T10:05:00Z'), at('2026-10-29T12:10:00Z')])
     render(<RegistrationHistory event={event} />)
     fireEvent.click(screen.getByRole('button', { name: /Registration history/ }))
     await flush()
@@ -86,7 +86,7 @@ describe('RegistrationHistory', () => {
   })
 
   it('says so when there are no registrations, and shows a load error', async () => {
-    api.listAllRegistrations.mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('Network down'))
+    api.listRegistrationTimes.mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('Network down'))
     render(<RegistrationHistory event={event} />)
     fireEvent.click(screen.getByRole('button', { name: /Registration history/ }))
     await flush()
@@ -97,5 +97,33 @@ describe('RegistrationHistory', () => {
     await flush()
     expect(screen.getByText('Network down')).toBeInTheDocument()
     unmount()
+  })
+})
+
+describe('RegistrationHistory refresh (R17-02)', () => {
+  it('an empty first load can be refreshed once people register', async () => {
+    api.listRegistrationTimes.mockResolvedValueOnce([]).mockResolvedValueOnce([at('2026-10-29T10:05:00Z')])
+    render(<RegistrationHistory event={event} />)
+    fireEvent.click(screen.getByRole('button', { name: /Registration history/ }))
+    await flush()
+    expect(screen.getByText('No registrations yet.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    await flush()
+    expect(api.listRegistrationTimes).toHaveBeenCalledTimes(2)
+    expect(screen.getAllByTestId('history-bar')).toHaveLength(1)
+  })
+
+  it('a failed first load can be retried', async () => {
+    api.listRegistrationTimes
+      .mockRejectedValueOnce(new Error('Network down'))
+      .mockResolvedValueOnce([at('2026-10-29T10:05:00Z')])
+    render(<RegistrationHistory event={event} />)
+    fireEvent.click(screen.getByRole('button', { name: /Registration history/ }))
+    await flush()
+    expect(screen.getByText('Network down')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    await flush()
+    expect(screen.queryByText('Network down')).toBeNull()
+    expect(screen.getAllByTestId('history-bar')).toHaveLength(1)
   })
 })

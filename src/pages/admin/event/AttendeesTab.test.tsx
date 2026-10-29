@@ -216,3 +216,34 @@ describe('AttendeesTab request order (R16-02)', () => {
     expect(box).toHaveFocus()
   })
 })
+
+describe('AttendeesTab dismissed action refresh (R17-01)', () => {
+  it('a revoke finishing after Clear reloads the list for the filters shown now', async () => {
+    api.listRegistrations.mockImplementation(async ({ search }: { search: string }) =>
+      search === 'alice'
+        ? { rows: [guest('reg-A', 'Alice', 'registered')], total: 1 }
+        : { rows: [guest('reg-B', 'Bob', 'registered')], total: 1 },
+    )
+    let finishRevoke!: () => void
+    api.revokeRegistration.mockReturnValue(new Promise<void>((r) => (finishRevoke = r)))
+    render(<AttendeesTab event={event} onChanged={vi.fn()} />)
+    await flush()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search attendees' }), {
+      target: { value: 'alice' },
+    })
+    await act(async () => new Promise((r) => setTimeout(r, 300)))
+    fireEvent.click(rowAction('Alice', 'Revoke'))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Revoke pass' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    await flush()
+    expect(screen.getAllByText(/Bob Guest/).length).toBeGreaterThan(0)
+
+    await act(async () => finishRevoke())
+    await flush()
+    expect(api.revokeRegistration).toHaveBeenCalledWith('reg-A')
+    expect(api.listRegistrations.mock.calls.at(-1)![0]).toMatchObject({ search: '' }) // not 'alice'
+    expect(screen.queryByText(/Alice Guest/)).toBeNull()
+    expect(screen.getAllByText(/Bob Guest/).length).toBeGreaterThan(0)
+  })
+})

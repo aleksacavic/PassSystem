@@ -64,7 +64,23 @@ export function HistoryPanel({
     if (!open && times === null && !loading) void load()
   }
 
-  const history = useMemo(() => (times ? registrationHistory(times, timeZone) : null), [times, timeZone])
+  // A chart that cannot be drawn shows an error here; it never takes the rest of the page down (R17-04).
+  const computed = useMemo(() => {
+    if (!times) return { history: null, failed: false }
+    try {
+      return { history: registrationHistory(times, timeZone), failed: false }
+    } catch {
+      return { history: null, failed: true }
+    }
+  }, [times, timeZone])
+  const history = computed.history
+
+  // Refresh is always offered once open: an empty or failed first load can be retried (R17-02).
+  const refresh = (
+    <Button variant="ghost" size="sm" icon={RefreshCw} onClick={load} loading={loading}>
+      Refresh
+    </Button>
+  )
 
   return (
     <Card>
@@ -87,14 +103,24 @@ export function HistoryPanel({
       {open && (
         <div id={panelId} className="space-y-4 border-t border-line-soft px-4 py-4 sm:px-5">
           {error && <Alert tone="bad">{error}</Alert>}
+          {computed.failed && (
+            <Alert tone="bad">
+              This chart could not be drawn for so much data. The list is not affected.
+            </Alert>
+          )}
           {!history ? (
-            loading && (
+            loading && !error ? (
               <div className="flex justify-center p-6">
                 <Spinner />
               </div>
+            ) : (
+              <div className="flex justify-center">{refresh}</div>
             )
           ) : history.total === 0 ? (
-            <p className="text-center text-sm text-fg-subtle">{empty}</p>
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-center text-sm text-fg-subtle">{empty}</p>
+              {refresh}
+            </div>
           ) : (
             <>
               <div className="flex flex-wrap items-end justify-between gap-3">
@@ -118,9 +144,7 @@ export function HistoryPanel({
                   <Button variant="ghost" size="sm" onClick={() => setAsTable((t) => !t)}>
                     {asTable ? 'Show chart' : 'Show as table'}
                   </Button>
-                  <Button variant="ghost" size="sm" icon={RefreshCw} onClick={load} loading={loading}>
-                    Refresh
-                  </Button>
+                  {refresh}
                 </div>
               </div>
               {asTable ? (

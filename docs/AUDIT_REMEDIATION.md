@@ -372,3 +372,19 @@ Results: unit 159 / 159, integration 138 / 138, E2E 10 / 10.
   and not the refused repeat.
 
 Results: unit 161 / 161, integration 138 / 138, E2E 10 / 10.
+
+## Codex review 17 remediation (no migration)
+
+Findings from `docs/CODEX_REVIEW_17.md`. Frontend only. The history fixes apply to both charts (Registration history
+and the new Check-in history), which share `HistoryPanel` and `registrationHistory()`.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R17-01 | Low | A dialog that finishes late reloads through a ref to the current loader, so it uses the filters shown now; in addition a list response is applied only if it is the latest request and its search/status/page still match the screen. Test: search "alice" → Revoke (held) → Cancel → Clear → the revoke finishes: the reload asks for the unfiltered list and Alice's rows never replace Bob's (fails on 6dd1683). |
+| R17-02 | Low | **Refresh** is shown whenever the panel is open, including after an empty or failed first load. Tests: empty → Refresh → a bar appears; failed → Refresh → the error clears and the chart shows (both fail on 6dd1683). |
+| R17-03 | Low | Periods before the first registration's local period are left out, so fractional-offset zones no longer get a leading empty hour or day. Tests: Kolkata 14:10 and 13:40 local, Kathmandu (+5:45), a daily Kolkata chart starting at 00:10 local (fails on 6dd1683). |
+| R17-04 | Low | Earliest/latest are found with a loop instead of `Math.min(...)`; `Intl.DateTimeFormat` objects are cached per zone and locale; the last key is computed once. The registration chart now loads only `registered_at` (new `listRegistrationTimes`, paginated) instead of full registrations. If the chart still cannot be drawn, the panel shows an error instead of the whole page failing. Tests: 200,000 timestamps return one bucket without throwing (throws on 6dd1683). Measured in this container: 10,000 timestamps ≈ 95 ms (Codex measured ≈ 800 ms before), a one-year span ≈ 45 ms (≈ 770 ms), 200,000 ≈ 1.1 s. A server-side aggregate would be the next step for six-figure events; not needed for the supervised event. |
+
+Also from this review: tooltips and table rows name the year when the chart spans more than one (test).
+
+Results: unit 167 / 167, integration 138 / 138, E2E 10 / 10.

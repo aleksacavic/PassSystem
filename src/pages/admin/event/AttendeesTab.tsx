@@ -1,5 +1,5 @@
 import { Ban, Download, RefreshCw, RotateCcw, Search, X } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   listAllRegistrations,
   listRegistrations,
@@ -41,21 +41,36 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
     return () => clearTimeout(t)
   }, [search])
 
-  // Only the latest request may update the list: a slower, older one (a search
-  // since cleared, a previous page, an earlier poll) is ignored when it arrives (R16-02).
+  // Only the latest request for the filters now shown may update the list: a
+  // slower, older one (a search since cleared, a previous page, an earlier poll)
+  // is ignored when it arrives (R16-02, R17-01).
   const latest = useRef(0)
+  const shownQuery = useRef('')
   const searchInput = useRef<HTMLInputElement>(null)
+  const query = JSON.stringify([debounced, status, page])
+  useLayoutEffect(() => {
+    shownQuery.current = query
+  }, [query])
 
   const load = useCallback(() => {
     const request = ++latest.current
+    const forQuery = JSON.stringify([debounced, status, page])
+    const current = () => request === latest.current && forQuery === shownQuery.current
     listRegistrations({ eventId: event.id, search: debounced, status, page, pageSize: PAGE_SIZE })
       .then((d) => {
-        if (request !== latest.current) return
+        if (!current()) return
         setData(d)
         setError(null)
       })
-      .catch((e: Error) => request === latest.current && setError(e.message))
+      .catch((e: Error) => current() && setError(e.message))
   }, [event.id, debounced, status, page])
+
+  // Callbacks that outlive a render (a dialog finishing late) reload with the filters
+  // shown now, not the ones they were created with (R17-01).
+  const loadLatest = useRef(load)
+  useEffect(() => {
+    loadLatest.current = load
+  }, [load])
 
   useEffect(load, [load])
   usePolling(load, 15_000)
@@ -295,7 +310,7 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
           kind={action.kind}
           onClose={() => setAction(null)}
           onDone={() => {
-            load()
+            loadLatest.current()
             onChanged()
           }}
         />

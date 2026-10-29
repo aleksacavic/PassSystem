@@ -1,4 +1,4 @@
-import { listAllRegistrations } from '../../../lib/api'
+import { listRegistrationTimes } from '../../../lib/api'
 import type { EventRow } from '../../../lib/types'
 import { HistoryPanel } from './HistoryPanel'
 
@@ -9,7 +9,7 @@ export function RegistrationHistory({ event }: { event: EventRow }) {
       title="Registration history"
       subtitle="When people registered over time"
       timeZone={event.timezone}
-      load={async () => (await listAllRegistrations(event.id)).map((r) => r.registered_at)}
+      load={() => listRegistrationTimes(event.id)}
       noun={['registration', 'registrations']}
       empty="No registrations yet."
       footnote="Includes passes that were later revoked."
