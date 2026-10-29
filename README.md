@@ -195,8 +195,9 @@ The CSP allows API calls to `https://*.supabase.co`. If you use a custom Supabas
 4. **Attendees** tab: search, filter by status, **Export CSV**, **Revoke** or **Restore** a pass, or **Reissue** a
    lost pass. Reissue creates a new QR; the old one stops working immediately.
 5. **Staff** tab: assign operators. **Activity** tab: every scan attempt.
-6. Set the event's status to **Archived** to hide it. All data is kept. Events that have registrations cannot be
-   deleted.
+6. To hide an event, open its card's **⋯** menu and choose **Archive event** (or set its status to **Archived** in Edit). All
+   data is kept; archived events are listed under **Archived**, where **Restore as draft** brings one back. Events that have
+   registrations cannot be deleted.
 
 **Attendee:** open the link or scan the poster QR → enter first and last name (email optional) → **Register** → the
 pass appears immediately. **Save QR** saves an image (share sheet on phones). **Copy pass link** copies the link,

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../../auth/AuthProvider'
-import { getEventSummaries } from '../../lib/api'
+import { getEventSummaries, updateEvent } from '../../lib/api'
 import { registrationUrl } from '../../lib/passToken'
 import { usePolling } from '../../lib/usePolling'
 import type { EventSummary } from '../../lib/types'
@@ -10,7 +10,7 @@ import { copyText } from '../../lib/clipboard'
 import { dateParts } from '../../lib/datetime'
 import { ShareButton } from '../../components/CopyButton'
 import { DateTile } from '../../components/DateTile'
-import { Link2, Plus, ScanLine, Settings2 } from 'lucide-react'
+import { Archive, ArchiveRestore, Link2, Plus, ScanLine, Settings2 } from 'lucide-react'
 import { Alert, Badge, ButtonLink, Card, Menu, PageSpinner, SegmentedControl, cx } from '../../components/ui'
 
 export default function EventsPage() {
@@ -83,7 +83,7 @@ export default function EventsPage() {
       )}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {visible.map((e) => (
-          <EventCard key={e.id} event={e} />
+          <EventCard key={e.id} event={e} onChanged={load} onError={setError} />
         ))}
       </div>
     </div>
@@ -133,8 +133,31 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
   )
 }
 
-function EventCard({ event }: { event: EventSummary }) {
+function EventCard({
+  event,
+  onChanged,
+  onError,
+}: {
+  event: EventSummary
+  onChanged: () => void
+  onError: (message: string) => void
+}) {
   const canManage = event.my_role === 'admin' || event.my_role === 'organizer'
+  const archived = event.status === 'archived'
+
+  async function setArchived(archive: boolean) {
+    const question = archive
+      ? `Archive "${event.name}"? Guests can no longer open it and it moves to the Archived list. Registrations and scan history are kept, and you can restore it.`
+      : `Restore "${event.name}" as a draft? It stays hidden from guests until you publish it again.`
+    if (!window.confirm(question)) return
+    try {
+      await updateEvent(event.id, { status: archive ? 'archived' : 'draft' })
+      onChanged()
+    } catch (e) {
+      onError((e as Error).message)
+    }
+  }
+
   const shareable = event.status !== 'draft' && event.status !== 'archived'
   const phase = phaseOf(event)
   const when = dateParts(event.starts_at, event.timezone)
@@ -144,6 +167,9 @@ function EventCard({ event }: { event: EventSummary }) {
       ? [{ label: 'Copy registration link', icon: Link2, onSelect: () => void copyText(url) }]
       : []),
     { label: 'Manage event', icon: Settings2, to: `/admin/events/${event.id}` },
+    archived
+      ? { label: 'Restore as draft', icon: ArchiveRestore, onSelect: () => void setArchived(false) }
+      : { label: 'Archive event', icon: Archive, onSelect: () => void setArchived(true) },
   ]
   return (
     <Card className="flex min-w-0 flex-col gap-4 p-4" data-testid="event-card">

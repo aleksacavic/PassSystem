@@ -41,7 +41,7 @@ a production build under the production CSP:
 - ✅ `events`, `registrations`, `event_staff`, `admission_logs` (+ `profiles` mirror of auth users) with UUIDs,
   FKs, CHECK constraints, unique constraints, indexes, UTC `timestamptz`.
 - ✅ Event `timezone` (IANA) added so attendees see local event times.
-- ✅ Archive without deleting. Events with registrations cannot be deleted (`ON DELETE RESTRICT`).
+- ✅ Archive without deleting (event card ⋯ menu: Archive event / Restore as draft, or Edit → Status). Events with registrations cannot be deleted (`ON DELETE RESTRICT`).
 - ✅ No global uniqueness on name or email. Per-event passes.
 - ✅ Tokens: 120-bit CSPRNG, stored only as SHA-256. Logs never contain raw tokens (tested).
 - ✅ RLS on every public table, column-level grants hide hashes, `anon` has no table access at all.
