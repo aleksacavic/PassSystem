@@ -16,7 +16,7 @@ import { ActivityTab } from './event/ActivityTab'
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
-  { key: 'attendees', label: 'Attendees' },
+  { key: 'attendees', label: 'Registrations' },
   { key: 'staff', label: 'Staff' },
   { key: 'activity', label: 'Scan activity' },
 ] as const

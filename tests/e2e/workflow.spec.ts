@@ -139,6 +139,14 @@ test('organizer → attendee → operator camera scan → event isolation → re
     await op.waitForTimeout(5000)
     expect(admitCalls).toBe(1)
 
+    // The four camera controls fit their labels on a phone (no text spilling out of a button).
+    for (const name of ['Stop camera', /Torch/, 'Switch camera', /Sound/]) {
+      const control = op.getByRole('button', { name })
+      const fits = await control.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)
+      expect(fits, `label fits: ${String(name)}`).toBe(true)
+    }
+    await op.screenshot({ path: join(ART, 'scanner-controls.png'), fullPage: false })
+
     // Present the same pass again after it left the camera: rejected.
     await op.getByRole('button', { name: 'Stop camera' }).click()
     await op.waitForTimeout(3500)
@@ -152,7 +160,7 @@ test('organizer → attendee → operator camera scan → event isolation → re
     // Operator cannot administer the event.
     await op.goto(`/admin/events/${eventA.id}`)
     await expect(op.getByText('Operator access')).toBeVisible()
-    await expect(op.getByRole('tab', { name: 'Attendees' })).toHaveCount(0)
+    await expect(op.getByRole('tab', { name: 'Registrations' })).toHaveCount(0)
     await opCtx.close()
   } finally {
     await camBrowser.close()
@@ -220,8 +228,12 @@ test('organizer → attendee → operator camera scan → event isolation → re
   await expect(stats).toContainText('Registered1')
 
   await org.goto(`/admin/events/${eventA.id}?tab=activity`)
-  await expect(org.getByText('Admitted', { exact: true })).toBeVisible()
-  await expect(org.getByText('Already used', { exact: true })).toBeVisible()
+  // The result badges in the list (the result filter lists the same words as options).
+  const scans = org.getByRole('listitem')
+  await expect(scans.getByText('Admitted', { exact: true })).toBeVisible()
+  await expect(scans.getByText('Already used', { exact: true })).toBeVisible()
+  await expect(org.getByText(/^\d+ server-validated scan attempts?, newest first\.$/)).toBeVisible()
+  await expect(org.getByText(/Last 100/)).toHaveCount(0)
   await expect(org.getByRole('tab', { name: 'Scan activity' })).toHaveAttribute('aria-selected', 'true')
   // Check-in history counts the one admitted scan, not the refused repeat.
   await org.getByRole('button', { name: /Check-in history/ }).click()
@@ -584,4 +596,44 @@ test('attendee list on a phone: full-width search, clear button and "Clear all"'
   await phone.screenshot({ path: join(ART, 'registration-history-phone.png'), fullPage: false })
   await phone.getByRole('button', { name: 'Show as table' }).click()
   await expect(phone.getByRole('table').getByRole('row')).toHaveCount(7)
+})
+
+test('event cards on a phone: an archived event keeps its menu in the top row and the menu stays on screen', async ({
+  browser,
+}) => {
+  const name = `Archived menu ${randomUUID().slice(0, 6)}`
+  const { error } = await service.from('events').insert({
+    name,
+    slug: `arch-${randomUUID().slice(0, 6)}`,
+    starts_at: new Date(Date.now() - 864e5).toISOString(),
+    status: 'archived',
+    created_by: organizer.id,
+  })
+  if (error) throw error
+
+  const phone = await (await browser.newContext({ ...devices['Pixel 7'], baseURL })).newPage()
+  await signIn(phone, organizer.email, organizer.password)
+  const viewport = phone.viewportSize()!
+  for (const tab of ['Archived', 'All']) {
+    await phone.getByRole('radio', { name: tab }).click()
+    const card = phone.getByTestId('event-card').filter({ hasText: name })
+    const more = card.getByRole('button', { name: `More actions for ${name}` })
+    await expect(more).toBeVisible()
+    // Same row as the event name, not a row of its own.
+    const title = await card.getByRole('heading', { name }).boundingBox()
+    const button = (await more.boundingBox())!
+    expect(button.y, `${tab}: menu button in the top row`).toBeLessThan(title!.y + title!.height)
+
+    await more.click()
+    const item = phone.getByRole('button', { name: 'Restore as draft' })
+    await expect(item).toBeVisible()
+    const list = (await item.locator('xpath=ancestor::div[1]/ancestor::div[1]').boundingBox())!
+    expect(list.x, `${tab}: menu left edge`).toBeGreaterThanOrEqual(0)
+    expect(list.x + list.width, `${tab}: menu right edge`).toBeLessThanOrEqual(viewport.width)
+    await phone.screenshot({
+      path: join(ART, `events-archived-menu-${tab.toLowerCase()}.png`),
+      fullPage: false,
+    })
+    await phone.keyboard.press('Escape')
+  }
 })

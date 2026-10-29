@@ -1,4 +1,4 @@
-// Registration history on the Attendees tab: collapsed, loaded on first open.
+// Registration history on the Registrations tab: collapsed, loaded on first open.
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

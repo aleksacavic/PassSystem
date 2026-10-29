@@ -388,3 +388,24 @@ and the new Check-in history), which share `HistoryPanel` and `registrationHisto
 Also from this review: tooltips and table rows name the year when the chart spans more than one (test).
 
 Results: unit 167 / 167, integration 138 / 138, E2E 10 / 10.
+
+## Owner requests: all scans with search, "Registrations" tab, archived card menu, scanner buttons (no migration)
+
+- **Scan activity lists every scan**, not the latest 100: new `listScanActivity()` in `src/lib/api.ts` pages through
+  `admission_logs` (50 per page, newest first, exact total) with the attendee joined in. The tab has the same toolbar as
+  Registrations: search by name, email or phone (every word must match; an inner join, so a search leaves out scans of
+  unknown passes), a result filter, Clear all, Previous/Next, and only-the-latest-response-wins. The header shows the
+  total ("1,234 server-validated scan attempts, newest first."). Tests: `src/pages/admin/event/ActivityTab.test.tsx`
+  (total and paging, search + result + Clear all, empty states) and `tests/integration/scan-activity.test.ts`, which runs
+  the app's `listScanActivity` against the real database as an organizer (all scans with attendees, search by name,
+  email and two words, result filter combined with search, paging, and nothing visible to staff of another event).
+  `tsconfig.node.json` now includes `vite/client` types so integration tests can import app modules.
+- The **Attendees** tab is now labelled **Registrations** (the `?tab=attendees` link is unchanged).
+- **Events page, Archived and All tabs:** an archived event has no Scan or Share button, so its ⋯ menu now sits in the
+  card's top row instead of a row of its own; and the menu (`src/components/ui/Menu.tsx`) opens toward the side of the
+  screen with room (RTL-aware) and is never wider than the screen. E2E at phone width: on both tabs the ⋯ button is in
+  the title row and the open menu's edges are within the viewport.
+- **Scanner:** the four camera controls (Stop camera, Torch, Switch camera, Sound) use smaller (11px), wrapping labels
+  with little side padding, so the text stays inside each button. E2E at phone width checks no label overflows.
+
+Results: unit 170 / 170, integration 142 / 142, E2E 11 / 11.

@@ -3,6 +3,7 @@ import { env, siteOrigin } from './env'
 import { ApiError, describeError, errorCode, messageFor } from './errors'
 import type {
   AdmissionLog,
+  AdmissionResult,
   AdmissionResponse,
   EventInput,
   EventRow,
@@ -271,6 +272,52 @@ export async function listAdmissionLogs(eventId: string, limit = 50): Promise<Ad
     .limit(limit)
   if (error) fail(error)
   return (data ?? []) as AdmissionLog[]
+}
+
+export interface ScanActivityRow extends AdmissionLog {
+  /** The attendee the scanned pass belongs to; null for unknown passes and passes of other events. */
+  registration: { first_name: string; last_name: string; email: string | null; phone: string | null } | null
+}
+
+export interface ScanActivityQuery {
+  eventId: string
+  /** Name, email or phone of the attendee; every word must match. */
+  search?: string
+  result?: AdmissionResult | 'all'
+  page?: number
+  pageSize?: number
+}
+
+/** Every scan attempt of an event, newest first, a page at a time, with the attendee it belongs to. */
+export async function listScanActivity(
+  q: ScanActivityQuery,
+): Promise<{ rows: ScanActivityRow[]; total: number }> {
+  const pageSize = q.pageSize ?? 50
+  const page = q.page ?? 0
+  const terms = (q.search ?? '').split(/\s+/).map(sanitizeSearchTerm).filter(Boolean).slice(0, 4)
+  // With a search, only scans of a known attendee can match (an inner join); without one, every scan is listed.
+  const attendee = terms.length ? 'registration:registrations!inner' : 'registration:registrations'
+  let query = supabase
+    .from('admission_logs')
+    .select(
+      `id,registration_id,event_id,operator_id,attempted_at,result,details,${attendee}(first_name,last_name,email,phone)`,
+      { count: 'exact' },
+    )
+    .eq('event_id', q.eventId)
+    .order('attempted_at', { ascending: false })
+    .order('id', { ascending: true })
+    .range(page * pageSize, page * pageSize + pageSize - 1)
+  if (q.result && q.result !== 'all') query = query.eq('result', q.result)
+  for (const term of terms) {
+    const pattern = `"%${term}%"`
+    query = query.or(
+      `first_name.ilike.${pattern},last_name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern}`,
+      { referencedTable: 'registrations' },
+    )
+  }
+  const { data, error, count } = await query
+  if (error) fail(error)
+  return { rows: (data ?? []) as unknown as ScanActivityRow[], total: count ?? 0 }
 }
 
 /** When each registration of an event was made, oldest first (for the registration chart): timestamps only. */

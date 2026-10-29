@@ -2,7 +2,7 @@ import { listRegistrationTimes } from '../../../lib/api'
 import type { EventRow } from '../../../lib/types'
 import { HistoryPanel } from './HistoryPanel'
 
-/** When people registered, on the Attendees tab. */
+/** When people registered, on the Registrations tab. */
 export function RegistrationHistory({ event }: { event: EventRow }) {
   return (
     <HistoryPanel

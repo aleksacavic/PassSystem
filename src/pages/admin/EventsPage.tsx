@@ -209,24 +209,27 @@ function EventCard({
           </p>
         </div>
         <ProgressRing done={event.checked_in_count} total={event.registered_count} />
+        {/* An archived event has no Scan or Share action: its menu sits in this row instead of
+            a row of its own. */}
+        {archived && canManage && <Menu label={`More actions for ${event.name}`} items={menu} />}
       </div>
-      <div className="flex gap-2">
-        {event.status !== 'archived' && (
+      {!archived && (
+        <div className="flex gap-2">
           <ButtonLink to={`/scan/${event.id}`} icon={ScanLine} className="flex-1">
             Scan
           </ButtonLink>
-        )}
-        {canManage && shareable && (
-          <ShareButton
-            url={url}
-            title={event.name}
-            text={`You're invited to ${event.name} (${when.date}, ${when.time}). Register here:`}
-            label="Share invite"
-            iconOnly
-          />
-        )}
-        {canManage && <Menu label={`More actions for ${event.name}`} items={menu} />}
-      </div>
+          {canManage && shareable && (
+            <ShareButton
+              url={url}
+              title={event.name}
+              text={`You're invited to ${event.name} (${when.date}, ${when.time}). Register here:`}
+              label="Share invite"
+              iconOnly
+            />
+          )}
+          {canManage && <Menu label={`More actions for ${event.name}`} items={menu} />}
+        </div>
+      )}
     </Card>
   )
 }

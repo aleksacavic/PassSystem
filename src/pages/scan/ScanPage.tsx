@@ -25,6 +25,13 @@ import { useWakeLock } from '../../scanner/useWakeLock'
 import { Alert, Button, ButtonLink, Card, Input, PageSpinner, Spinner, cx } from '../../components/ui'
 import { EventStatusBadge } from '../../components/StatusBadge'
 
+/**
+ * The four camera controls share a row on a phone: smaller, wrapping labels with little side
+ * padding so "Switch camera" stays inside its button. `!` because the shared button size sets
+ * padding, text size and no-wrap too.
+ */
+const CONTROL = 'min-w-0 flex-col gap-1 px-1! py-2 text-[11px]! leading-tight whitespace-normal! text-center'
+
 export default function ScanPage() {
   const { eventId } = useParams()
   // key: a different event gets a fresh scanner (no stale header, gate or history).
@@ -344,12 +351,7 @@ function Scanner({ eventId }: { eventId: string }) {
       {/* Camera controls */}
       {running && (
         <div className="grid grid-cols-4 gap-2">
-          <Button
-            variant="secondary"
-            icon={CameraOff}
-            onClick={stopCamera}
-            className="flex-col gap-1 py-2 text-xs"
-          >
+          <Button variant="secondary" icon={CameraOff} onClick={stopCamera} className={CONTROL}>
             Stop camera
           </Button>
           <Button
@@ -358,7 +360,7 @@ function Scanner({ eventId }: { eventId: string }) {
             onClick={() => void toggleTorch()}
             aria-pressed={torchOn}
             disabled={!torchSupported}
-            className="flex-col gap-1 py-2 text-xs"
+            className={CONTROL}
           >
             {torchOn ? 'Torch off' : 'Torch on'}
           </Button>
@@ -367,7 +369,7 @@ function Scanner({ eventId }: { eventId: string }) {
             icon={SwitchCamera}
             onClick={() => void switchCamera()}
             disabled={cameraCount < 2}
-            className="flex-col gap-1 py-2 text-xs"
+            className={CONTROL}
           >
             Switch camera
           </Button>
@@ -376,7 +378,7 @@ function Scanner({ eventId }: { eventId: string }) {
             icon={soundOn ? Volume2 : VolumeX}
             onClick={() => setSoundOn((on) => !on)}
             aria-pressed={soundOn}
-            className="flex-col gap-1 py-2 text-xs"
+            className={CONTROL}
           >
             Sound {soundOn ? 'on' : 'off'}
           </Button>
