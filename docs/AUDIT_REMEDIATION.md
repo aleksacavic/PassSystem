@@ -294,3 +294,21 @@ Frontend only; tests are in `src/pages/public/RegisterPage.test.tsx`.
 | R14-01 | Low | Saved passes are read through a small store, `useStoredPasses()` in `src/lib/passStorage.ts` (`useSyncExternalStore`). `savePass` and `forgetPass` notify it directly, since a write does not fire `storage` in its own document, and the `storage` event covers other tabs. Home and the registration form's "you already have a pass" list therefore show a pass as soon as it is saved, including one from a registration that finished after the guest left, without navigating; the form still lists only its own event's passes. Tests: submit on Gala → Back to Home → registration finishes: Home shows a link to the new pass and the route stays `/`; Gala → Spring → Gala before the response → finishes: Gala's fresh form lists the pass, and Spring's never does; with Spring's form open, a saved Gala pass does not appear but a Spring pass does. All three fail on d87659e. |
 
 Results after this remediation: unit 140 / 140, integration 138 / 138, E2E 9 / 9.
+
+## Owner request: attendee list search and filters (no migration)
+
+Reported by the owner from a phone: left of the "All statuses" menu on the Attendees tab was an unusable sliver. It was
+the search field, squeezed to almost no width on narrow screens.
+
+- The search field now has its own full-width row on phones (side by side with the filters from `sm` up), a search icon,
+  and a clear (×) button that empties the search at once (no debounce wait).
+- **Clear all** appears whenever a search or status filter is active and resets both. On phones it sits on its own line
+  under the filters, so the status menu keeps its width.
+- An empty result now says "No attendees match these filters." with a **Clear all** button, or "No attendees yet." for an
+  event with no registrations.
+- Tests: `src/pages/admin/event/AttendeesTab.test.tsx` (search and clear, Clear all resets search and status and returns
+  to page 1, both empty states), and an E2E test at phone width (`tests/e2e/workflow.spec.ts`, Pixel 7) that checks the
+  search field spans more than 80% of the screen, filters by name, clears, and that Clear all resets an empty filtered
+  view.
+
+Results: unit 143 / 143, integration 138 / 138, E2E 10 / 10.

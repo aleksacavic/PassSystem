@@ -170,7 +170,9 @@ test('organizer → attendee → operator camera scan → event isolation → re
   await att.getByTestId('lang-switch').click()
   await expect(att.locator('html')).toHaveAttribute('dir', 'rtl')
   await expect(att.getByLabel('الاسم الأول')).toBeVisible()
-  expect(await att.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
+  expect(
+    await att.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
+  ).toBe(0)
   await att.getByTestId('lang-switch').click()
   await att.getByLabel('First name').fill('Marko')
   await att.getByLabel('Last name').fill('Marković')
@@ -445,4 +447,74 @@ test('Add to Google Wallet: Android gets a signed save link; iPhone does not see
   await iphone.goto(passPath)
   await expect(iphone.getByTestId('pass-name')).toHaveText('Wanda Wallet')
   await expect(iphone.getByTestId('google-wallet')).toHaveCount(0)
+})
+
+test('attendee list on a phone: full-width search, clear button and "Clear all"', async ({ browser }) => {
+  const { data: ev } = await service
+    .from('events')
+    .insert({
+      name: 'Attendee search E2E',
+      slug: `search-${randomUUID().slice(0, 6)}`,
+      starts_at: new Date(Date.now() + 864e5).toISOString(),
+      status: 'published',
+      created_by: organizer.id,
+    })
+    .select('id, slug')
+    .single()
+  const anon = createClient(stack.apiUrl, stack.anonKey, { auth: { persistSession: false } })
+  const { data: pub } = await anon.rpc('get_public_event', { p_slug: ev!.slug })
+  for (const [first, last] of [
+    ['Ivana', 'Duric'],
+    ['Nebojsa', 'Duric'],
+    ['Tea', 'Mihalic'],
+  ]) {
+    await anon.rpc('register_for_event', {
+      p_slug: ev!.slug,
+      p_first_name: first,
+      p_last_name: last,
+      p_accept_terms: true,
+      p_terms_version: pub.event.terms_version,
+      p_request_id: randomUUID(),
+    })
+  }
+
+  const phone = watchCsp(await (await browser.newContext({ ...devices['Pixel 7'], baseURL })).newPage())
+  await signIn(phone, organizer.email, organizer.password)
+  await phone.goto(`/admin/events/${ev!.id}?tab=attendees`)
+  const search = phone.getByRole('searchbox', { name: 'Search attendees' })
+  // Rows exist in both the desktop table and the phone cards; only the visible one counts.
+  const shown = (text: string) => phone.locator(`text=${text} >> visible=true`).first()
+  await expect(shown('Tea Mihalic')).toBeVisible()
+
+  // The search field is usable: it spans the content width instead of collapsing beside the filter.
+  const box = await search.boundingBox()
+  const viewport = phone.viewportSize()!
+  expect(box!.width).toBeGreaterThan(viewport.width * 0.8)
+  await phone.screenshot({ path: join(ART, 'attendees-phone.png'), fullPage: false })
+
+  await search.fill('duric')
+  await expect(phone.getByText('Tea Mihalic')).toHaveCount(0)
+  await expect(shown('Ivana Duric')).toBeVisible()
+  await phone.getByRole('button', { name: 'Clear search' }).click()
+  await expect(search).toHaveValue('')
+  await expect(shown('Tea Mihalic')).toBeVisible()
+
+  await phone.getByRole('combobox', { name: 'Filter by status' }).selectOption('revoked')
+  await search.fill('nobody')
+  await expect(phone.getByText('No attendees match these filters.')).toBeVisible()
+  await phone.screenshot({ path: join(ART, 'attendees-phone-filtered.png'), fullPage: false })
+
+  // Desktop: search, status, Clear all and Export on one row.
+  const desk = await (await browser.newContext({ viewport: { width: 1280, height: 900 }, baseURL })).newPage()
+  await signIn(desk, organizer.email, organizer.password)
+  await desk.goto(`/admin/events/${ev!.id}?tab=attendees`)
+  await desk.getByRole('searchbox', { name: 'Search attendees' }).fill('duric')
+  await expect(desk.locator('text=Tea Mihalic >> visible=true')).toHaveCount(0)
+  await desk.screenshot({ path: join(ART, 'attendees-desktop.png'), fullPage: false })
+
+  await phone.getByRole('button', { name: 'Clear all' }).first().click()
+  await expect(search).toHaveValue('')
+  await expect(phone.getByRole('combobox', { name: 'Filter by status' })).toHaveValue('all')
+  await expect(shown('Tea Mihalic')).toBeVisible()
+  await phone.screenshot({ path: join(ART, 'attendees-phone-cleared.png'), fullPage: false })
 })

@@ -121,3 +121,62 @@ describe.each([
     expect(onChanged).toHaveBeenCalled() // A's change still refreshed the list
   })
 })
+
+// Search and filters: a usable search field with its own clear button, and "Clear all".
+describe('AttendeesTab search and filters', () => {
+  async function renderTab() {
+    api.listRegistrations.mockResolvedValue({ rows: [guest('reg-A', 'Alice', 'registered')], total: 1 })
+    render(<AttendeesTab event={event} onChanged={vi.fn()} />)
+    await flush()
+  }
+  const lastQuery = () => api.listRegistrations.mock.calls.at(-1)![0]
+
+  it('searches, and the clear button empties the search at once', async () => {
+    await renderTab()
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search attendees' }), {
+      target: { value: 'ali' },
+    })
+    await act(async () => new Promise((r) => setTimeout(r, 300))) // debounce
+    expect(lastQuery()).toMatchObject({ search: 'ali', page: 0 })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    await flush()
+    expect(screen.getByRole('searchbox', { name: 'Search attendees' })).toHaveValue('')
+    expect(lastQuery()).toMatchObject({ search: '', status: 'all' })
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
+  })
+
+  it('"Clear all" appears only when filtered and resets search and status', async () => {
+    await renderTab()
+    expect(screen.queryByRole('button', { name: 'Clear all' })).toBeNull()
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by status' }), {
+      target: { value: 'checked_in' },
+    })
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search attendees' }), {
+      target: { value: 'bob' },
+    })
+    await act(async () => new Promise((r) => setTimeout(r, 300)))
+    expect(lastQuery()).toMatchObject({ search: 'bob', status: 'checked_in' })
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Clear all' })[0]!)
+    await flush()
+    expect(screen.getByRole('searchbox', { name: 'Search attendees' })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Filter by status' })).toHaveValue('all')
+    expect(lastQuery()).toMatchObject({ search: '', status: 'all', page: 0 })
+    expect(screen.queryByRole('button', { name: 'Clear all' })).toBeNull()
+  })
+
+  it('an empty filtered result offers "Clear all"; an empty event says no attendees yet', async () => {
+    api.listRegistrations.mockResolvedValue({ rows: [], total: 0 })
+    render(<AttendeesTab event={event} onChanged={vi.fn()} />)
+    await flush()
+    expect(screen.getByText('No attendees yet.')).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by status' }), {
+      target: { value: 'revoked' },
+    })
+    await flush()
+    expect(screen.getByText('No attendees match these filters.')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Clear all' })).toHaveLength(2) // toolbar and empty state
+  })
+})

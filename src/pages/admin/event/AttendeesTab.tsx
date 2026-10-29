@@ -1,4 +1,4 @@
-import { Ban, Download, RefreshCw, RotateCcw } from 'lucide-react'
+import { Ban, Download, RefreshCw, RotateCcw, Search, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import {
   listAllRegistrations,
@@ -90,41 +90,81 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
   }
 
   const pages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1
+  const filtered = search.trim() !== '' || status !== 'all'
+
+  function clearSearch() {
+    setSearch('')
+    setDebounced('')
+    setPage(0)
+  }
+
+  function clearAll() {
+    clearSearch()
+    setStatus('all')
+  }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          type="search"
-          placeholder="Search name, email or phone"
-          aria-label="Search attendees"
-          className="max-w-xs flex-1"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            setPage(0)
-          }}
-        />
-        {/* Wrapper sets the width: the shared control class is w-full. */}
-        <div className="w-48 shrink-0">
-          <Select
-            aria-label="Filter by status"
-            value={status}
+      {/* Search gets its own full-width row on phones; side by side with the filters from sm up. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative min-w-0 sm:max-w-sm sm:flex-1">
+          <Search
+            className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle"
+            aria-hidden="true"
+          />
+          <Input
+            type="search"
+            enterKeyHint="search"
+            placeholder="Search name, email or phone"
+            aria-label="Search attendees"
+            className="ps-9 pe-10 [&::-webkit-search-cancel-button]:appearance-none"
+            value={search}
             onChange={(e) => {
-              setStatus(e.target.value as RegistrationStatus | 'all')
+              setSearch(e.target.value)
               setPage(0)
             }}
-          >
-            <option value="all">All statuses</option>
-            <option value="registered">Not checked in</option>
-            <option value="checked_in">Checked in</option>
-            <option value="revoked">Revoked</option>
-          </Select>
+          />
+          {search && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={clearSearch}
+              className="absolute end-1 top-1/2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-control text-fg-subtle hover:bg-surface-sunk hover:text-fg"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
+          )}
         </div>
-        <div className="flex-1" />
-        <Button variant="secondary" icon={Download} onClick={exportCsv} loading={exporting}>
-          Export CSV
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 sm:contents">
+          {/* Wrapper sets the width: the shared control class is w-full. */}
+          <div className="min-w-0 flex-1 sm:w-48 sm:flex-none">
+            <Select
+              aria-label="Filter by status"
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value as RegistrationStatus | 'all')
+                setPage(0)
+              }}
+            >
+              <option value="all">All statuses</option>
+              <option value="registered">Not checked in</option>
+              <option value="checked_in">Checked in</option>
+              <option value="revoked">Revoked</option>
+            </Select>
+          </div>
+          {filtered && (
+            // Phones: its own line under the filters, so the status menu keeps its width.
+            <div className="order-last flex w-full justify-end sm:order-none sm:w-auto">
+              <Button variant="ghost" size="sm" icon={X} onClick={clearAll}>
+                Clear all
+              </Button>
+            </div>
+          )}
+          <div className="hidden sm:block sm:flex-1" />
+          <Button variant="secondary" icon={Download} onClick={exportCsv} loading={exporting}>
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       {error && <Alert tone="bad">{error}</Alert>}
@@ -135,7 +175,14 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
             <Spinner />
           </div>
         ) : data.rows.length === 0 ? (
-          <p className="p-8 text-center text-fg-subtle">No attendees match.</p>
+          <div className="space-y-3 p-8 text-center text-fg-subtle">
+            <p>{filtered ? 'No attendees match these filters.' : 'No attendees yet.'}</p>
+            {filtered && (
+              <Button variant="secondary" size="sm" icon={X} onClick={clearAll}>
+                Clear all
+              </Button>
+            )}
+          </div>
         ) : (
           <>
             {/* Desktop table */}
