@@ -2,11 +2,12 @@ import { act, render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import RegisterPage from './RegisterPage'
+import HomePage from './HomePage'
 import { LangProvider } from '../../components/LangProvider'
 import * as api from '../../lib/api'
 import { ApiError } from '../../lib/errors'
 import { translate } from '../../lib/i18n'
-import { passesForEvent } from '../../lib/passStorage'
+import { passesForEvent, savePass } from '../../lib/passStorage'
 
 vi.mock('../../lib/api', () => ({
   getPublicEvent: vi.fn(),
@@ -333,5 +334,120 @@ describe('RegisterPage late completion (R13-01)', () => {
     expect(router.state.location.pathname).toBe('/e/spring')
     expect(await screen.findByLabelText('First name')).toHaveValue('')
     expect(passesForEvent('gala').map((p) => p.token)).toEqual([result.token])
+  })
+})
+
+// R14-01: a pass saved after the guest left the form shows up on the page they are on,
+// without a reload, and only for its own event.
+describe('saved passes appear as they are saved (R14-01)', () => {
+  const result = {
+    token: '87J813AZE9GZXK95NP3GA5F4',
+    replayed: false,
+    registration: {
+      first_name: 'Ana',
+      last_name: 'Test',
+      status: 'registered' as const,
+      registered_at: '2026-10-28T10:00:00Z',
+    },
+    event,
+  }
+
+  beforeEach(() => {
+    vi.mocked(api.getPublicEvent).mockImplementation(async (slug: string) => ({
+      event: { ...event, slug, name: slug === 'gala' ? 'Gala' : 'Spring' },
+      registrationState: 'open',
+    }))
+    localStorage.clear()
+  })
+
+  async function submitOnGala() {
+    let resolve!: (v: typeof result) => void
+    vi.mocked(api.registerForEvent).mockReturnValue(new Promise((r) => (resolve = r)))
+    const router = createMemoryRouter(
+      [
+        { path: '/', element: <HomePage /> },
+        { path: '/e/:slug', element: <RegisterPage /> },
+        { path: '/pass', element: <p>pass page</p> },
+      ],
+      { initialEntries: ['/', '/e/gala'], initialIndex: 1 },
+    )
+    render(
+      <LangProvider>
+        <RouterProvider router={router} />
+      </LangProvider>,
+    )
+    fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Test' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Get my pass' }))
+    return { router, finish: () => act(async () => resolve(result)) }
+  }
+
+  it('Back to Home, then the registration finishes: Home lists the new pass', async () => {
+    const { router, finish } = await submitOnGala()
+    await act(async () => router.navigate(-1))
+    expect(screen.queryByRole('link', { name: /Ana Test/ })).toBeNull()
+
+    await finish()
+    expect(router.state.location.pathname).toBe('/')
+    expect(passesForEvent('gala').map((p) => p.token)).toEqual([result.token])
+    expect(await screen.findByRole('link', { name: /Ana Test/ })).toHaveAttribute(
+      'href',
+      `/pass#${result.token}`,
+    )
+  })
+
+  it("Gala -> Spring -> Gala, then it finishes: Gala's form lists it, Spring's never does", async () => {
+    const { router, finish } = await submitOnGala()
+    await act(async () => router.navigate('/e/spring'))
+    await screen.findByLabelText('First name')
+    await act(async () => router.navigate('/e/gala')) // back on Gala before the response arrives
+    await screen.findByLabelText('First name')
+    expect(screen.queryByRole('link', { name: /Ana Test/ })).toBeNull()
+
+    await finish()
+    expect(router.state.location.pathname).toBe('/e/gala')
+    expect(await screen.findByRole('link', { name: /Ana Test/ })).toHaveAttribute(
+      'href',
+      `/pass#${result.token}`,
+    )
+    expect(screen.getByLabelText('First name')).toHaveValue('') // a fresh form, not redirected
+
+    await act(async () => router.navigate('/e/spring'))
+    await screen.findByLabelText('First name')
+    expect(screen.queryByRole('link', { name: /Ana Test/ })).toBeNull() // never shown as Spring's
+  })
+
+  it("while Spring's form is open, a Gala pass never appears there but a Spring pass does", async () => {
+    const router = createMemoryRouter([{ path: '/e/:slug', element: <RegisterPage /> }], {
+      initialEntries: ['/e/spring'],
+    })
+    render(
+      <LangProvider>
+        <RouterProvider router={router} />
+      </LangProvider>,
+    )
+    await screen.findByLabelText('First name')
+    await act(async () =>
+      savePass({
+        token: result.token,
+        slug: 'gala',
+        eventName: 'Gala',
+        attendeeName: 'Ana Test',
+        startsAt: event.starts_at,
+        savedAt: new Date().toISOString(),
+      }),
+    )
+    expect(screen.queryByRole('link', { name: /Ana Test/ })).toBeNull()
+    await act(async () =>
+      savePass({
+        token: 'SPRINGTOKEN0000000000000',
+        slug: 'spring',
+        eventName: 'Spring',
+        attendeeName: 'Bo Spring',
+        startsAt: event.starts_at,
+        savedAt: new Date().toISOString(),
+      }),
+    )
+    expect(screen.getByRole('link', { name: /Bo Spring/ })).toBeInTheDocument()
   })
 })

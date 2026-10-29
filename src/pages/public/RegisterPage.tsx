@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Clock, MapPin, Ticket } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { getPublicEvent, registerForEvent } from '../../lib/api'
 import { ApiError } from '../../lib/errors'
 import { formatDateTime, formatEventDate, zoneLabel } from '../../lib/datetime'
 import { errorKey, errorMessage, useT, type MessageKey } from '../../lib/i18n'
-import { passesForEvent, savePass, type StoredPass } from '../../lib/passStorage'
+import { savePass, useStoredPasses } from '../../lib/passStorage'
 import { useIsCurrent } from '../../lib/useIsCurrent'
 import { randomUuid } from '../../lib/random'
 import type { PublicEvent, RegistrationState } from '../../lib/types'
@@ -62,7 +62,8 @@ function RegisterForm({ slug }: { slug: string }) {
   // An error code, translated when shown, so switching language updates it.
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [existing] = useState<StoredPass[]>(() => passesForEvent(slug))
+  const stored = useStoredPasses()
+  const existing = useMemo(() => stored.filter((p) => p.slug === slug), [stored, slug])
   // One idempotency key per registration attempt; reused if the user retries
   // after a network failure so the server never creates a duplicate.
   const requestId = useRef<string>(randomUuid())

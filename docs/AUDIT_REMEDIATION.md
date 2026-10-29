@@ -283,3 +283,14 @@ Findings from `docs/CODEX_REVIEW_13.md`. Frontend only; tests are in `src/pages/
 | R13-02 | Low | The attendee action dialog checks `useIsCurrent()` after its request: the list refresh (`onDone`) still runs, but a dialog dismissed meanwhile no longer calls `onClose` or changes its state, so it cannot close the dialog opened since. Each dialog is also keyed by guest and action. Tests, for revoke, restore and reissue: confirm A → Cancel → open B → A finishes: B's dialog stays open and unconfirmed, nothing is sent for B, and the list refreshes. Revoke and restore fail on fdbb1bb (B's dialog closed); reissue passes on both versions, because reissue never closed the dialog (it is kept as a control). |
 
 Results after this remediation: unit 137 / 137, integration 138 / 138, E2E 9 / 9.
+
+## Codex review 14 remediation (no migration)
+
+Findings from `docs/CODEX_REVIEW_14.md` (Codex pushed it on `codex/passsystem-review-14`; merged into this branch).
+Frontend only; tests are in `src/pages/public/RegisterPage.test.tsx`.
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R14-01 | Low | Saved passes are read through a small store, `useStoredPasses()` in `src/lib/passStorage.ts` (`useSyncExternalStore`). `savePass` and `forgetPass` notify it directly, since a write does not fire `storage` in its own document, and the `storage` event covers other tabs. Home and the registration form's "you already have a pass" list therefore show a pass as soon as it is saved, including one from a registration that finished after the guest left, without navigating; the form still lists only its own event's passes. Tests: submit on Gala → Back to Home → registration finishes: Home shows a link to the new pass and the route stays `/`; Gala → Spring → Gala before the response → finishes: Gala's fresh form lists the pass, and Spring's never does; with Spring's form open, a saved Gala pass does not appear but a Spring pass does. All three fail on d87659e. |
+
+Results after this remediation: unit 140 / 140, integration 138 / 138, E2E 9 / 9.

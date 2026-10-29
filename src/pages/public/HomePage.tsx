@@ -1,14 +1,13 @@
-import { useState } from 'react'
 import { Link } from 'react-router'
 import { formatEventDate } from '../../lib/datetime'
 import { useT } from '../../lib/i18n'
-import { loadPasses } from '../../lib/passStorage'
+import { useStoredPasses } from '../../lib/passStorage'
 import { LogoMark } from '../../components/Logo'
 import { PublicLayout } from '../../components/PublicLayout'
 import { ButtonLink, Card } from '../../components/ui'
 
 export default function HomePage() {
-  const [passes] = useState(loadPasses)
+  const passes = useStoredPasses()
   const { t, locale } = useT()
   return (
     <PublicLayout>
