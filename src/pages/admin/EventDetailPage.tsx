@@ -155,7 +155,13 @@ function EventDetail({ id }: { id: string }) {
         </div>
       </section>
 
-      <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Event sections">
+      <div
+        // Phones: the four tabs share the full width (no sideways scroll or scrollbar line);
+        // "Scan activity" may break onto two lines. From sm up: pills of their natural width.
+        className="flex w-full gap-0.5 overflow-x-auto [scrollbar-width:none] sm:gap-1 [&::-webkit-scrollbar]:hidden"
+        role="tablist"
+        aria-label="Event sections"
+      >
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -163,7 +169,7 @@ function EventDetail({ id }: { id: string }) {
             aria-selected={tab === t.key}
             onClick={() => setParams(t.key === 'overview' ? {} : { tab: t.key }, { replace: true })}
             className={cx(
-              'min-h-9 rounded-pill px-3.5 text-sm font-bold whitespace-nowrap transition-colors',
+              'min-h-9 flex-auto rounded-pill px-1.5 text-[13px] leading-tight font-bold transition-colors sm:flex-none sm:px-3.5 sm:text-sm sm:whitespace-nowrap',
               tab === t.key ? 'bg-fg text-canvas' : 'text-fg-muted hover:bg-surface-muted hover:text-fg',
             )}
           >

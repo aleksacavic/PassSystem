@@ -420,3 +420,10 @@ Findings from `docs/CODEX_REVIEW_18.md`. Frontend only.
 | R18-02 | Low | The Registrations and Scan activity lists now share `usePagedList` (`src/lib/usePagedList.ts`): a response is applied when it is for the filters shown **and newer than the last response applied** (not "the latest request started"), so a slow response is used even if a poll started meanwhile, while an older one arriving after a newer one is still ignored. Polls are skipped while a request for the filters shown is still on its way. `reload()` for late dialog callbacks keeps R17-01's current-filter behaviour. Tests (`src/lib/usePagedList.test.ts`, real polling with fake timers): every response takes 16 s with 15 s polling → the list shows after 16 s and at most 5 requests run in 76 s (never shows with the old rule); page 1 → 2 → 1 with the first request finishing last → the fresh page 1 stays; an old `reload` loads the query shown now. |
 
 Results: unit 175 / 175, integration 142 / 142, E2E 11 / 11.
+
+## Owner request: event tabs fit the phone width (no migration)
+
+With the longer tab names (Registrations, Scan activity) the event tab row was wider than a phone and showed a sideways
+scroll with a scrollbar line under it. On phones the four tabs now share the full width (`flex-auto`, 13px, tighter
+padding; "Scan activity" may break onto two lines) and the scrollbar is hidden; from `sm` up they are pills of their
+natural width as before. `src/pages/admin/EventDetailPage.tsx` only.
