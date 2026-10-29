@@ -20,6 +20,7 @@ import { QrImage } from '../../../components/QrImage'
 import { useQrDataUrl } from '../../../components/useQrDataUrl'
 import { RegistrationStatusBadge } from '../../../components/StatusBadge'
 import { Alert, Button, Card, Input, Select, Spinner } from '../../../components/ui'
+import { RegistrationHistory } from './RegistrationHistory'
 
 const PAGE_SIZE = 50
 
@@ -105,6 +106,8 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
 
   return (
     <div className="space-y-4">
+      <RegistrationHistory event={event} />
+
       {/* Search gets its own full-width row on phones; side by side with the filters from sm up. */}
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative min-w-0 sm:max-w-sm sm:flex-1">

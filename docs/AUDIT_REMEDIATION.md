@@ -324,3 +324,23 @@ Findings from `docs/CODEX_REVIEW_15.md`. Frontend only; tests are in `src/lib/pa
 Also from this review: stored entries are used only when every field is a string (an object-valued `eventName` or a token-only entry is ignored; test fails on 26b1109), and the pass page's "saved on this device" badge and Forget link follow the store instead of a one-time read.
 
 Results after this remediation: unit 147 / 147, integration 138 / 138, E2E 10 / 10.
+
+## Owner request: registration history chart and "Scan activity" tab (no migration)
+
+- The event's **Activity** tab is now labelled **Scan activity** (its heading already said so; the `?tab=activity` link is
+  unchanged).
+- The Attendees tab starts with a collapsible **Registration history** section (closed by default; it loads all
+  registrations only when first opened, with a Refresh button). It shows the total, the busiest hour or day, and a
+  single-series column chart of registrations per hour (spans up to 48 hours) or per day, counted in the event's time
+  zone with empty periods shown as zero; revoked passes are included. Bars show their period and count on hover, and a
+  **Show as table** view lists every period. Bar colour is `--color-brand-bright` (teal-500), which passes the chart
+  palette checks against the page surface (the darker brand teals read as grey).
+- Bucketing lives in `src/lib/registrationHistory.ts` (walks the span hour by hour in UTC and keys each local period
+  once, so daylight-saving changes and half-hour zones give one bucket per period).
+- Tests: `src/lib/registrationHistory.test.ts` (hourly in Asia/Dubai with zero-filled gaps, daily by local date,
+  Asia/Kolkata half-hour zone, a Europe/Belgrade DST change without duplicate buckets, empty and unreadable input),
+  `src/pages/admin/event/RegistrationHistory.test.tsx` (collapsed with no load, loads once on open, bar labels and hover
+  readout, table view, empty and error states), and the phone/desktop E2E attendee test now opens the section with
+  registrations spread over six hours.
+
+Results: unit 155 / 155, integration 138 / 138, E2E 10 / 10.

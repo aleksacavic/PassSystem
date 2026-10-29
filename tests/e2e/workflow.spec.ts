@@ -478,6 +478,27 @@ test('attendee list on a phone: full-width search, clear button and "Clear all"'
     })
   }
 
+  // Spread more registrations over the last few hours for the registration history chart.
+  for (let i = 0; i < 9; i++) {
+    await anon.rpc('register_for_event', {
+      p_slug: ev!.slug,
+      p_first_name: `Guest${i}`,
+      p_last_name: 'Wave',
+      p_accept_terms: true,
+      p_terms_version: pub.event.terms_version,
+      p_request_id: randomUUID(),
+    })
+  }
+  const { data: regs } = await service.from('registrations').select('id').eq('event_id', ev!.id)
+  const hoursAgo = [5, 5, 4, 4, 4, 4, 2, 1, 1, 1, 0, 0]
+  for (const [i, r] of (regs ?? []).entries()) {
+    const { error } = await service
+      .from('registrations')
+      .update({ registered_at: new Date(Date.now() - (hoursAgo[i] ?? 0) * 3600e3).toISOString() })
+      .eq('id', r.id)
+    if (error) throw error
+  }
+
   const phone = watchCsp(await (await browser.newContext({ ...devices['Pixel 7'], baseURL })).newPage())
   await signIn(phone, organizer.email, organizer.password)
   await phone.goto(`/admin/events/${ev!.id}?tab=attendees`)
@@ -511,10 +532,26 @@ test('attendee list on a phone: full-width search, clear button and "Clear all"'
   await desk.getByRole('searchbox', { name: 'Search attendees' }).fill('duric')
   await expect(desk.locator('text=Tea Mihalic >> visible=true')).toHaveCount(0)
   await desk.screenshot({ path: join(ART, 'attendees-desktop.png'), fullPage: false })
+  await desk.getByRole('button', { name: /Registration history/ }).click()
+  await desk.getByTestId('history-bar').nth(1).hover()
+  await expect(desk.locator('p[aria-live="polite"]')).toContainText(/\d+ registrations? · /)
+  await desk.screenshot({ path: join(ART, 'registration-history-desktop.png'), fullPage: false })
 
   await phone.getByRole('button', { name: 'Clear all' }).first().click()
   await expect(search).toHaveValue('')
   await expect(phone.getByRole('combobox', { name: 'Filter by status' })).toHaveValue('all')
   await expect(shown('Tea Mihalic')).toBeVisible()
   await phone.screenshot({ path: join(ART, 'attendees-phone-cleared.png'), fullPage: false })
+
+  // Registration history: collapsed by default, opens to a chart of registrations per hour.
+  const history = phone.getByRole('button', { name: /Registration history/ })
+  await expect(history).toHaveAttribute('aria-expanded', 'false')
+  await history.click()
+  await expect(phone.getByText(/busiest hour/)).toBeVisible()
+  await expect(phone.getByTestId('history-bar')).toHaveCount(6)
+  await phone.getByTestId('history-bar').first().scrollIntoViewIfNeeded()
+  await phone.mouse.wheel(0, 200)
+  await phone.screenshot({ path: join(ART, 'registration-history-phone.png'), fullPage: false })
+  await phone.getByRole('button', { name: 'Show as table' }).click()
+  await expect(phone.getByRole('table').getByRole('row')).toHaveCount(7)
 })
