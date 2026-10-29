@@ -6,6 +6,7 @@ import { ApiError } from '../../lib/errors'
 import { formatDateTime, formatEventDate, zoneLabel } from '../../lib/datetime'
 import { errorKey, errorMessage, useT, type MessageKey } from '../../lib/i18n'
 import { passesForEvent, savePass, type StoredPass } from '../../lib/passStorage'
+import { useIsCurrent } from '../../lib/useIsCurrent'
 import { randomUuid } from '../../lib/random'
 import type { PublicEvent, RegistrationState } from '../../lib/types'
 import {
@@ -42,9 +43,15 @@ const NAME_MESSAGES: Record<NameProblem, MessageKey> = {
   no_letter: 'error.nameLetter',
 }
 
+/** One form per event link: moving to another event's link starts a fresh form. */
 export default function RegisterPage() {
   const { slug = '' } = useParams()
+  return <RegisterForm key={slug} slug={slug} />
+}
+
+function RegisterForm({ slug }: { slug: string }) {
   const navigate = useNavigate()
+  const isCurrent = useIsCurrent()
   const { t, locale } = useT()
   const shown = (e?: FieldError) => e && t(e.key, { label: e.label ? t(e.label) : '', max: NAME_MAX })
   const [load, setLoad] = useState<LoadState>({ kind: 'loading' })
@@ -123,8 +130,11 @@ export default function RegisterPage() {
         savedAt: new Date().toISOString(),
       })
       requestId.current = randomUuid()
-      navigate(`/pass#${result.token}`, { state: { justRegistered: true, result } })
+      // The pass is saved on this device either way; only open it if the guest is
+      // still on this form, rather than redirecting a page they have moved to (R13-01).
+      if (isCurrent()) navigate(`/pass#${result.token}`, { state: { justRegistered: true, result } })
     } catch (err) {
+      if (!isCurrent()) return
       const apiErr = err instanceof ApiError ? (err as ApiError & { field?: string }) : null
       if (apiErr?.code === 'terms_not_accepted' || apiErr?.code === 'terms_changed') {
         // The organizer may have just switched terms on or edited them: show the
@@ -152,7 +162,7 @@ export default function RegisterPage() {
       }
     } finally {
       inFlight.current = false
-      setSubmitting(false)
+      if (isCurrent()) setSubmitting(false)
     }
   }
 

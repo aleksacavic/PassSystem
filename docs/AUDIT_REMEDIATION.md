@@ -271,3 +271,15 @@ Findings from `docs/CODEX_REVIEW_12.md`. Frontend only; tests are in `src/pages/
 Also checked: the scanner was already keyed by event (`<Scanner key={eventId}>`); Users has no record route parameter. The Activity and Overview tabs' log and name lookups are reset by the same keys.
 
 Results after this remediation: unit 132 / 132, integration 138 / 138, E2E 9 / 9.
+
+## Codex review 13 remediation (no migration)
+
+Findings from `docs/CODEX_REVIEW_13.md`. Frontend only; tests are in `src/pages/public/RegisterPage.test.tsx` and
+`src/pages/admin/event/AttendeesTab.test.tsx` (new).
+
+| ID | Severity | Fix |
+| --- | --- | --- |
+| R13-01 | Low | The registration form is keyed by the event link (`<RegisterForm key={slug}>`) and uses `useIsCurrent()`. When a registration finishes, the pass is always saved on the device, but the page opens it only if the guest is still on that form; error and busy state of a form the guest has left are not touched. Tests: submit → Back → registration finishes: the guest stays on `/` and the pass is saved; submit → another event's link → finishes: that form stays open and empty, and the first pass is saved. Both redirected to `/pass` on fdbb1bb. |
+| R13-02 | Low | The attendee action dialog checks `useIsCurrent()` after its request: the list refresh (`onDone`) still runs, but a dialog dismissed meanwhile no longer calls `onClose` or changes its state, so it cannot close the dialog opened since. Each dialog is also keyed by guest and action. Tests, for revoke, restore and reissue: confirm A → Cancel → open B → A finishes: B's dialog stays open and unconfirmed, nothing is sent for B, and the list refreshes. Revoke and restore fail on fdbb1bb (B's dialog closed); reissue passes on both versions, because reissue never closed the dialog (it is kept as a control). |
+
+Results after this remediation: unit 137 / 137, integration 138 / 138, E2E 9 / 9.

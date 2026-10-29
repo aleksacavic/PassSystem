@@ -11,6 +11,7 @@ import { downloadText, toCsv } from '../../../lib/csv'
 import { formatDateTime } from '../../../lib/datetime'
 import { formatPassToken, passUrl } from '../../../lib/passToken'
 import { safeFilename } from '../../../lib/qr'
+import { useIsCurrent } from '../../../lib/useIsCurrent'
 import { usePolling } from '../../../lib/usePolling'
 import type { EventRow, Registration, RegistrationStatus } from '../../../lib/types'
 import { CopyButton } from '../../../components/CopyButton'
@@ -227,6 +228,7 @@ export function AttendeesTab({ event, onChanged }: { event: EventRow; onChanged:
 
       {action && (
         <ActionModal
+          key={`${action.reg.id}:${action.kind}`}
           event={event}
           reg={action.reg}
           kind={action.kind}
@@ -283,6 +285,7 @@ function ActionModal({
   onClose: () => void
   onDone: () => void
 }) {
+  const isCurrent = useIsCurrent()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [token, setToken] = useState<string | null>(null)
@@ -294,15 +297,19 @@ function ActionModal({
     setBusy(true)
     setError(null)
     try {
+      let issued: string | null = null
       if (kind === 'revoke') await revokeRegistration(reg.id)
       if (kind === 'restore') await restoreRegistration(reg.id)
-      if (kind === 'reissue') setToken(await reissuePass(reg.id))
-      onDone()
+      if (kind === 'reissue') issued = await reissuePass(reg.id)
+      onDone() // refresh the list in any case
+      // If this dialog was dismissed meanwhile, do not close or change the one now open (R13-02).
+      if (!isCurrent()) return
+      if (issued) setToken(issued)
       if (kind !== 'reissue') onClose()
     } catch (e) {
-      setError((e as Error).message)
+      if (isCurrent()) setError((e as Error).message)
     } finally {
-      setBusy(false)
+      if (isCurrent()) setBusy(false)
     }
   }
 

@@ -1,11 +1,12 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router'
+import { act, render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import RegisterPage from './RegisterPage'
 import { LangProvider } from '../../components/LangProvider'
 import * as api from '../../lib/api'
 import { ApiError } from '../../lib/errors'
 import { translate } from '../../lib/i18n'
+import { passesForEvent } from '../../lib/passStorage'
 
 vi.mock('../../lib/api', () => ({
   getPublicEvent: vi.fn(),
@@ -272,5 +273,65 @@ describe('RegisterPage', () => {
     expect(screen.queryByText(/PRIVATE_DIAGNOSTIC/)).toBeNull()
     view.unmount()
     localStorage.removeItem('passsystem.lang')
+  })
+})
+
+// R13-01: a registration that finishes after the guest left the form keeps the
+// pass on the device but does not redirect the page they are on now.
+describe('RegisterPage late completion (R13-01)', () => {
+  const result = {
+    token: '87J813AZE9GZXK95NP3GA5F4',
+    replayed: false,
+    registration: {
+      first_name: 'Ana',
+      last_name: 'Test',
+      status: 'registered' as const,
+      registered_at: '2026-10-28T10:00:00Z',
+    },
+    event,
+  }
+
+  beforeEach(() => {
+    vi.mocked(api.getPublicEvent).mockResolvedValue({ event, registrationState: 'open' })
+    localStorage.clear()
+  })
+
+  async function submitThenLeave(leave: (router: ReturnType<typeof createMemoryRouter>) => Promise<void>) {
+    let resolve!: (v: typeof result) => void
+    vi.mocked(api.registerForEvent).mockReturnValue(new Promise((r) => (resolve = r)))
+    const router = createMemoryRouter(
+      [
+        { path: '/', element: <p>home page</p> },
+        { path: '/e/:slug', element: <RegisterPage /> },
+        { path: '/pass', element: <p>pass page</p> },
+      ],
+      { initialEntries: ['/', '/e/gala'], initialIndex: 1 },
+    )
+    render(
+      <LangProvider>
+        <RouterProvider router={router} />
+      </LangProvider>,
+    )
+    fireEvent.change(await screen.findByLabelText('First name'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Test' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Get my pass' }))
+    expect(api.registerForEvent).toHaveBeenCalledTimes(1)
+    await act(async () => leave(router))
+    await act(async () => resolve(result))
+    await act(async () => new Promise((r) => setTimeout(r, 0)))
+    return router
+  }
+
+  it('after going Back, the guest stays where they are and the pass is saved', async () => {
+    const router = await submitThenLeave((r) => r.navigate(-1))
+    expect(router.state.location.pathname).toBe('/')
+    expect(passesForEvent('gala').map((p) => p.token)).toEqual([result.token])
+  })
+
+  it('after opening another event link, that form stays open and empty', async () => {
+    const router = await submitThenLeave((r) => r.navigate('/e/spring'))
+    expect(router.state.location.pathname).toBe('/e/spring')
+    expect(await screen.findByLabelText('First name')).toHaveValue('')
+    expect(passesForEvent('gala').map((p) => p.token)).toEqual([result.token])
   })
 })

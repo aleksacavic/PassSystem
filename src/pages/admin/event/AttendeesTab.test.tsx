@@ -1,0 +1,123 @@
+// R13-02: a dismissed attendee dialog that finishes late refreshes the list but
+// never closes or changes the dialog the organizer has opened since.
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const api = vi.hoisted(() => ({
+  listRegistrations: vi.fn(),
+  listAllRegistrations: vi.fn(),
+  reissuePass: vi.fn(),
+  restoreRegistration: vi.fn(),
+  revokeRegistration: vi.fn(),
+}))
+vi.mock('../../../lib/api', () => api)
+vi.mock('../../../lib/usePolling', () => ({ usePolling: () => undefined }))
+vi.mock('../../../components/useQrDataUrl', () => ({ useQrDataUrl: () => null }))
+import { AttendeesTab } from './AttendeesTab'
+
+const event = {
+  id: 'ev-1',
+  name: 'Autumn Gala',
+  slug: 'autumn-gala',
+  description: null,
+  location: null,
+  timezone: 'Asia/Dubai',
+  starts_at: '2026-11-06T16:00:00Z',
+  ends_at: null,
+  registration_opens_at: null,
+  registration_closes_at: null,
+  status: 'published' as const,
+  max_attendees: null,
+  terms_required: false,
+  terms_text: null,
+  created_at: '2026-10-01T08:00:00Z',
+  updated_at: '2026-10-29T08:00:00Z',
+  created_by: null,
+}
+const guest = (id: string, first: string, status: 'registered' | 'revoked') => ({
+  id,
+  event_id: 'ev-1',
+  first_name: first,
+  last_name: 'Guest',
+  email: null,
+  phone: null,
+  status,
+  registered_at: '2026-10-29T08:00:00Z',
+  checked_in_at: null,
+  checked_in_by: null,
+  revoked_at: status === 'revoked' ? '2026-10-29T09:00:00Z' : null,
+  token_issued_at: '2026-10-29T08:00:00Z',
+  token_version: 1,
+  terms_accepted_at: null,
+})
+
+function deferred<T>() {
+  let resolve!: (v: T) => void
+  const promise = new Promise<T>((r) => (resolve = r))
+  return { promise, resolve }
+}
+
+const flush = () =>
+  act(async () => {
+    for (let i = 0; i < 3; i++) await new Promise((r) => setTimeout(r, 0))
+  })
+
+/** Row action for one guest (each row is shown in a list and a card layout). */
+function rowAction(first: string, action: string) {
+  const rows = screen.getAllByText(new RegExp(`${first} Guest`))
+  for (const row of rows) {
+    const container = row.closest('tr, li, [data-row]') ?? row.parentElement!.parentElement!
+    const button = within(container as HTMLElement).queryByRole('button', { name: action })
+    if (button) return button
+  }
+  throw new Error(`no ${action} button for ${first}`)
+}
+
+beforeEach(() => {
+  for (const fn of Object.values(api)) fn.mockReset()
+})
+
+describe.each([
+  {
+    kind: 'revoke',
+    action: 'Revoke',
+    confirm: 'Revoke pass',
+    status: 'registered',
+    call: 'revokeRegistration',
+  },
+  {
+    kind: 'restore',
+    action: 'Restore',
+    confirm: 'Restore pass',
+    status: 'revoked',
+    call: 'restoreRegistration',
+  },
+  { kind: 'reissue', action: 'Reissue', confirm: 'Reissue pass', status: 'registered', call: 'reissuePass' },
+] as const)('AttendeesTab $kind dialog (R13-02)', ({ action, confirm, status, call }) => {
+  it("A's request finishing after its dialog was dismissed leaves B's dialog open", async () => {
+    api.listRegistrations.mockResolvedValue({
+      rows: [guest('reg-A', 'Alice', status), guest('reg-B', 'Bob', status)],
+      total: 2,
+    })
+    const pending = deferred<string | undefined>()
+    api[call].mockReturnValue(pending.promise)
+    const onChanged = vi.fn()
+    render(<AttendeesTab event={event} onChanged={onChanged} />)
+    await flush()
+
+    fireEvent.click(rowAction('Alice', action))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: confirm }))
+    expect(api[call]).toHaveBeenCalledWith('reg-A')
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(rowAction('Bob', action))
+    expect(within(screen.getByRole('dialog')).getByText(/Bob Guest/)).toBeInTheDocument()
+
+    await act(async () => pending.resolve(call === 'reissuePass' ? 'NEWTOKENFORALICE00000000' : undefined))
+    await flush()
+    const dialog = screen.getByRole('dialog') // B's dialog is still open ...
+    expect(within(dialog).getByText(/Bob Guest/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: confirm })).toBeInTheDocument() // ... unconfirmed
+    expect(api[call]).toHaveBeenCalledTimes(1) // nothing was sent for B
+    expect(onChanged).toHaveBeenCalled() // A's change still refreshed the list
+  })
+})
