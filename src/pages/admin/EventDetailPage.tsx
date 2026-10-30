@@ -189,7 +189,7 @@ function EventDetail({ id }: { id: string }) {
 
 function HeaderStat({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="flex flex-col-reverse items-center gap-0.5 border-e border-on-brand/15 px-1 text-center last:border-e-0">
+    <div className="flex flex-col-reverse items-center justify-end gap-0.5 border-e border-on-brand/15 px-1 text-center last:border-e-0">
       <dt className="text-[11px] leading-tight font-bold text-on-brand-muted">{label}</dt>
       <dd className="text-2xl leading-none font-extrabold tabular-nums">{value}</dd>
     </div>
