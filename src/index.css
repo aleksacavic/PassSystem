@@ -1,0 +1,51 @@
+@import 'tailwindcss';
+
+@import './styles/tokens.css';
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-canvas text-fg antialiased;
+    min-height: 100dvh;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}
+
+@layer components {
+  /* Subtle diagonal texture on brand-coloured bands (event cover, pass). */
+  .band-pattern {
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-on-brand) 7%, transparent) 0 12px,
+      transparent 12px 24px
+    );
+  }
+  [dir='rtl'] .band-pattern {
+    background-image: repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--color-on-brand) 7%, transparent) 0 12px,
+      transparent 12px 24px
+    );
+  }
+}
